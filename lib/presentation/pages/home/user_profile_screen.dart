@@ -13,6 +13,7 @@ import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/themes/app_decoration.dart';
 import 'package:juan_heart/themes/app_styles.dart';
 import 'package:translator/translator.dart';
+import 'package:juan_heart/presentation/pages/settings/privacy_preferences_screen.dart';
 
 const List<String> list = <String>['English', 'Filipino'];
 
@@ -274,6 +275,51 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   const CustomDropdownButton(),
                 ],
+              ),
+              const SizedBox(height: 16),
+              // Privacy & Data menu item
+              GestureDetector(
+                onTap: () {
+                  Get.to(() => const PrivacyPreferencesScreen());
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: ColorConstant.trustBlue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.privacy_tip,
+                            color: ColorConstant.trustBlue,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          Get.locale?.languageCode == 'fil'
+                              ? 'Privacy at Data'
+                              : 'Privacy & Data',
+                          style: TextStyle(
+                            color: ColorConstant.bluedark.withOpacity(0.7),
+                            fontSize: 15.5,
+                            fontFamily: "Poppins",
+                          ),
+                        ),
+                      ],
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: ColorConstant.bluedark.withOpacity(0.5),
+                      size: 16,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

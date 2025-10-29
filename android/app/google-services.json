@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1063269685609",
+    "project_id": "juan-heart-project",
+    "storage_bucket": "juan-heart-project.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1063269685609:android:55b3b454738ec6069ec5f8",
+        "android_client_info": {
+          "package_name": "com.example.juan_heart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBs9KqhdT7It9_bFCOj0PtIMnVpECXbAuw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

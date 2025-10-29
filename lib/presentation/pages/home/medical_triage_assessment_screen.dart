@@ -3,8 +3,17 @@ import 'package:get/get.dart';
 import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/services/medical_triage_assessment_service.dart';
 import 'package:juan_heart/services/pdf_report_service.dart';
+import 'package:juan_heart/services/referral_service.dart';
+import 'package:juan_heart/services/analytics_service.dart';
+import 'package:juan_heart/services/assessment_strategy.dart';
+import 'package:juan_heart/services/feature_flag_service.dart';
+import 'package:juan_heart/services/ai_consent_service.dart';
 import 'package:juan_heart/models/medical_triage_assessment_data.dart';
+import 'package:juan_heart/models/assessment_history_model.dart';
+import 'package:juan_heart/presentation/widgets/ai_consent_dialog.dart';
+import 'package:juan_heart/presentation/widgets/validation_comparison_view.dart';
 import 'package:juan_heart/themes/app_styles.dart';
+import 'package:juan_heart/routes/app_routes.dart';
 
 class MedicalTriageAssessmentScreen extends StatefulWidget {
   const MedicalTriageAssessmentScreen({super.key});
@@ -19,6 +28,16 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
   int _currentPage = 0;
   bool _isLoading = false;
   Map<String, dynamic>? _assessmentResult;
+  
+  // Collapsible sections state for results screen
+  bool _isHeatmapExpanded = true;
+  bool _isDetailsExpanded = false;
+  bool _isRecommendationsExpanded = false;
+
+  // AI assessment state
+  AssessmentStrategy _selectedStrategy = RuleBasedAssessmentStrategy();
+  bool _showAIOption = false;
+  bool _isComparisonExpanded = true;
 
   // Form data
   Map<String, dynamic> _userInput = {
@@ -63,6 +82,15 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
     super.initState();
     _initializeControllers();
     _assessmentService.initialize();
+    _checkAIAvailability();
+  }
+
+  /// Check if AI assessment option should be shown
+  Future<void> _checkAIAvailability() async {
+    final isEnabled = await FeatureFlagService.isAIAssessmentEnabled();
+    setState(() {
+      _showAIOption = isEnabled;
+    });
   }
 
   void _initializeControllers() {
@@ -107,8 +135,28 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
         }
       }
 
-      final result = _assessmentService.assessHeartDiseaseRisk(_userInput);
-      
+      // Use selected strategy (AI or Rule-Based)
+      final assessmentContext = AssessmentContext(_selectedStrategy);
+      final result = await assessmentContext.performAssessment(_userInput);
+
+      // Check if AI fallback was used
+      if (result['fallbackUsed'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('AI unavailable. Using validated rule-based algorithm.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+
+      // Save assessment to history for analytics
+      await _saveAssessmentToHistory(result);
+
       setState(() {
         _assessmentResult = result;
         _isLoading = false;
@@ -123,6 +171,42 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       );
     }
   }
+  
+  /// Save assessment results to history for analytics tracking
+  Future<void> _saveAssessmentToHistory(Map<String, dynamic> result) async {
+    try {
+      final record = AssessmentRecord(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        date: DateTime.now(),
+        finalRiskScore: result['finalRiskScore'] ?? 0,
+        likelihoodScore: result['likelihoodScore'] ?? 1,
+        impactScore: result['impactScore'] ?? 1,
+        riskCategory: result['riskCategory'] ?? 'Low',
+        likelihoodLevel: result['likelihoodLevel'] ?? '',
+        impactLevel: result['impactLevel'] ?? '',
+        recommendedAction: result['recommendedAction'] ?? '',
+        systolicBP: int.tryParse(_userInput['systolicBP']?.toString() ?? ''),
+        diastolicBP: int.tryParse(_userInput['diastolicBP']?.toString() ?? ''),
+        heartRate: int.tryParse(_userInput['heartRate']?.toString() ?? ''),
+        oxygenSaturation: int.tryParse(_userInput['oxygenSaturation']?.toString() ?? ''),
+        temperature: double.tryParse(_userInput['temperature']?.toString() ?? ''),
+        symptoms: Map<String, dynamic>.from(_userInput)
+          ..removeWhere((key, value) => !key.startsWith('symptom_') && key != 'chestPainType' && key != 'shortnessOfBreath'),
+        riskFactors: Map<String, dynamic>.from(_userInput)
+          ..removeWhere((key, value) => !(key.contains('hypertension') || key.contains('diabetes') || 
+            key.contains('smoking') || key.contains('obesity') || key.contains('familyHistory') || 
+            key.contains('ckd') || key.contains('highCholesterol'))),
+        age: int.tryParse(_userInput['age']?.toString() ?? '') ?? 0,
+        sex: _userInput['sex']?.toString() ?? 'Unknown',
+      );
+      
+      await AnalyticsService.saveAssessment(record);
+      print('✅ Assessment saved to history for analytics');
+    } catch (e) {
+      print('⚠️ Error saving assessment to history: $e');
+      // Don't block the user flow if saving fails
+    }
+  }
 
   void _nextPage() {
     // Validate required fields before proceeding
@@ -130,7 +214,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       return; // Stop if validation fails
     }
 
-    if (_currentPage < 4) {
+    if (_currentPage < 5) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -139,10 +223,36 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       _runAssessment();
     }
   }
+  
+  void _navigateToNextSteps() {
+    if (_assessmentResult == null) return;
+    
+    // Get risk score from assessment result (note: it's stored as 'finalRiskScore' in the assessment)
+    int riskScore = _assessmentResult!['finalRiskScore'] ?? 0;
+    String riskCategory = _assessmentResult!['riskCategory'] ?? 'Low Risk';
+    
+    // Generate care recommendation using ReferralService
+    final recommendation = ReferralService.generateRecommendation(
+      riskCategory: riskCategory,
+      riskScore: riskScore,
+      language: Get.locale?.languageCode ?? 'en',
+    );
+    
+    // Navigate to Next Steps screen with recommendation and assessment data
+    Get.toNamed(
+      AppRoutes.nextStepsScreen,
+      arguments: {
+        'recommendation': recommendation,
+        'assessmentData': _userInput,
+      },
+    );
+  }
 
   bool _validateCurrentPage() {
     switch (_currentPage) {
-      case 0: // Basic Information
+      case 0: // Method Selection - No validation needed
+        break;
+      case 1: // Basic Information
         // Check age - try both _userInput and controller
         String ageValue = _userInput['age']?.toString() ?? _controllers['age']?.text ?? '';
         if (ageValue.isEmpty) {
@@ -155,18 +265,18 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
         }
         // Validate age range
         int age = int.tryParse(ageValue) ?? 0;
-        if (age < 0 || age > 120) {
-          _showValidationError('Please enter a valid age between 0 and 120.');
+        if (age < 10 || age > 90) {
+          _showValidationError('Please enter a valid age between 10 and 90.');
           return false;
         }
         break;
-      case 1: // Symptoms - No required fields
+      case 2: // Symptoms - No required fields
         break;
-      case 2: // Vital Signs - No required fields
+      case 3: // Vital Signs - No required fields
         break;
-      case 3: // Risk Factors - No required fields
+      case 4: // Risk Factors - No required fields
         break;
-      case 4: // Review - No validation needed
+      case 5: // Review - No validation needed
         break;
     }
     return true;
@@ -257,14 +367,14 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             children: [
               Expanded(
                 child: LinearProgressIndicator(
-                  value: (_currentPage + 1) / 5,
+                  value: (_currentPage + 1) / 6,
                   backgroundColor: ColorConstant.bluedark.withOpacity(0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(ColorConstant.bluedark),
                 ),
               ),
               const SizedBox(width: 10),
               Text(
-                "${_currentPage + 1}/5",
+                "${_currentPage + 1}/6",
                 style: AppStyle.txtPoppinsSemiBold16Dark,
               ),
             ],
@@ -290,6 +400,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 });
               },
               children: [
+                _buildMethodSelectionPage(),
                 _buildBasicInfoPage(),
                 _buildSymptomsPage(),
                 _buildVitalSignsPage(),
@@ -305,8 +416,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              // Required fields note (only show on first step)
-              if (_currentPage == 0)
+              // Required fields note (only show on basic info page)
+              if (_currentPage == 1)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -341,7 +452,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     ],
                   ),
                 ),
-              if (_currentPage == 0) const SizedBox(height: 16),
+              if (_currentPage == 1) const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -356,14 +467,14 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     )
                   else
                     const SizedBox(width: 100),
-                  
+
                   ElevatedButton(
                     onPressed: _nextPage,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ColorConstant.bluedark,
                       foregroundColor: Colors.white,
                     ),
-                    child: Text(_currentPage == 4 ? "Complete Assessment" : "Next"),
+                    child: Text(_currentPage == 5 ? "Complete Assessment" : "Next"),
                   ),
                 ],
               ),
@@ -371,6 +482,241 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           ),
         ),
       ],
+    );
+  }
+
+  /// Build method selection page (AI vs Rule-Based)
+  Widget _buildMethodSelectionPage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Text(
+            "Assessment Method",
+            style: AppStyle.txtPoppinsSemiBold24Dark,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Choose how you want to assess your heart disease risk. Both methods are validated and safe.",
+            style: TextStyle(
+              color: ColorConstant.bluedark.withOpacity(0.7),
+              fontSize: 14,
+              fontFamily: "Poppins",
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Rule-Based Card
+          _buildMethodCard(
+            title: "PHC Rule-Based Algorithm",
+            badge: "VALIDATED",
+            badgeColor: Colors.green,
+            icon: Icons.calculate,
+            description: "Clinically validated algorithm based on Philippine Heart Center guidelines. Works offline.",
+            features: [
+              "100% offline capability",
+              "PHC-validated accuracy",
+              "Instant results",
+              "Privacy-first design",
+            ],
+            isSelected: _selectedStrategy is RuleBasedAssessmentStrategy,
+            onTap: () {
+              setState(() {
+                _selectedStrategy = RuleBasedAssessmentStrategy();
+              });
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          // AI Card (conditional)
+          if (_showAIOption)
+            _buildMethodCard(
+              title: "Gemini AI Prediction",
+              badge: "EXPERIMENTAL",
+              badgeColor: Colors.orange,
+              icon: Icons.auto_awesome,
+              description: "AI-powered assessment using Google's Gemini Flash model. Requires internet connection.",
+              features: [
+                "Advanced AI analysis",
+                "Contextual insights",
+                "Validation against rule-based",
+                "Shows both results if different",
+              ],
+              isSelected: _selectedStrategy is AIAssessmentStrategy,
+              onTap: () async {
+                // Check consent before selecting AI
+                final hasConsent = await AIConsentService.hasConsent();
+                if (!hasConsent) {
+                  final consented = await showAIConsentDialog();
+                  if (!consented) return; // User declined
+                }
+
+                setState(() {
+                  _selectedStrategy = AIAssessmentStrategy();
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Build method selection card
+  Widget _buildMethodCard({
+    required String title,
+    required String badge,
+    required Color badgeColor,
+    required IconData icon,
+    required String description,
+    required List<String> features,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? badgeColor : ColorConstant.cardBorder,
+            width: isSelected ? 3 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? badgeColor.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: isSelected ? 12 : 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: badgeColor, size: 28),
+                ),
+                const SizedBox(width: 12),
+
+                // Title and badge
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
+                          color: ColorConstant.bluedark,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badge,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Selection indicator
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: ColorConstant.gentleGray,
+                        width: 2,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Description
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: ColorConstant.bluedark.withOpacity(0.8),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Features list
+            ...features.map((feature) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: badgeColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      feature,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ColorConstant.bluedark.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )).toList(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -421,7 +767,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 color: ColorConstant.bluedark.withOpacity(0.4),
                 fontSize: 14,
               ),
-              helperText: "Range: 0-120 years",
+              helperText: "Range: 10-90 years",
               helperStyle: TextStyle(
                 color: ColorConstant.bluedark.withOpacity(0.6),
                 fontSize: 12,
@@ -726,43 +1072,235 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
 
   Widget _buildReviewPage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Header with icon
+          Icon(
+            Icons.check_circle_outline,
+            size: 60,
+            color: ColorConstant.reassuringGreen,
+          ),
+          const SizedBox(height: 16),
+          
           Text(
             "Review Your Information",
             style: AppStyle.txtPoppinsSemiBold24Dark,
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
           
-          Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: ColorConstant.bluedark.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+          const SizedBox(height: 8),
+          
+          Text(
+            "Please review your entries before submitting",
+            style: TextStyle(
+              color: ColorConstant.gentleGray,
+              fontSize: 14,
+              fontFamily: "Poppins",
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Basic Info:", style: AppStyle.txtPoppinsSemiBold16Dark),
-                Text("Age: ${_userInput['age']}", style: AppStyle.txtPoppinsSemiBold14Dark),
-                Text("Sex: ${_userInput['sex']}", style: AppStyle.txtPoppinsSemiBold14Dark),
-                
-                const SizedBox(height: 10),
-                Text("Symptoms:", style: AppStyle.txtPoppinsSemiBold16Dark),
-                Text("Chest Pain: ${_userInput['chestPainType']}", style: AppStyle.txtPoppinsSemiBold14Dark),
-                Text("Duration: ${_userInput['chestPainDuration']} minutes", style: AppStyle.txtPoppinsSemiBold14Dark),
-                Text("Shortness of Breath: ${_userInput['shortnessOfBreath']}", style: AppStyle.txtPoppinsSemiBold14Dark),
-                
-                const SizedBox(height: 10),
-                Text("Vital Signs:", style: AppStyle.txtPoppinsSemiBold16Dark),
-                Text("BP: ${_userInput['systolicBP']}/${_userInput['diastolicBP']}", style: AppStyle.txtPoppinsSemiBold14Dark),
-                Text("HR: ${_userInput['heartRate']} bpm", style: AppStyle.txtPoppinsSemiBold14Dark),
-                Text("SpO₂: ${_userInput['oxygenSaturation']}%", style: AppStyle.txtPoppinsSemiBold14Dark),
-              ],
-            ),
+            textAlign: TextAlign.center,
           ),
+          
+          const SizedBox(height: 32),
+          
+          // Basic Info Card
+          _buildReviewCard(
+            title: "Basic Information",
+            icon: Icons.person_outline,
+            iconColor: ColorConstant.trustBlue,
+            items: [
+              _buildReviewItem("Age", "${_userInput['age']} years"),
+              _buildReviewItem("Sex", "${_userInput['sex']}"),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Symptoms Card
+          _buildReviewCard(
+            title: "Symptoms",
+            icon: Icons.favorite_outline,
+            iconColor: const Color(0xFFE63946),
+            items: [
+              if (_userInput['chestPainType'].toString().isNotEmpty && _userInput['chestPainType'] != '')
+                _buildReviewItem("Chest Pain", "${_userInput['chestPainType']}"),
+              if (_userInput['chestPainDuration'].toString().isNotEmpty && _userInput['chestPainDuration'] != '')
+                _buildReviewItem("Duration", "${_userInput['chestPainDuration']} minutes"),
+              if (_userInput['shortnessOfBreath'].toString().isNotEmpty && _userInput['shortnessOfBreath'] != '')
+                _buildReviewItem("Shortness of Breath", "${_userInput['shortnessOfBreath']}"),
+              if (_userInput['dizziness'] == true)
+                _buildReviewItem("Other Symptoms", "Dizziness"),
+              if (_userInput['nausea'] == true)
+                _buildReviewItem("", "Nausea"),
+              if (_userInput['sweating'] == true)
+                _buildReviewItem("", "Sweating"),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Vital Signs Card
+          _buildReviewCard(
+            title: "Vital Signs",
+            icon: Icons.monitor_heart_outlined,
+            iconColor: ColorConstant.calmingBlue,
+            items: [
+              if (_userInput['systolicBP'].toString().isNotEmpty && _userInput['diastolicBP'].toString().isNotEmpty)
+                _buildReviewItem("Blood Pressure", "${_userInput['systolicBP']}/${_userInput['diastolicBP']} mmHg"),
+              if (_userInput['heartRate'].toString().isNotEmpty)
+                _buildReviewItem("Heart Rate", "${_userInput['heartRate']} bpm"),
+              if (_userInput['oxygenSaturation'].toString().isNotEmpty)
+                _buildReviewItem("Oxygen Saturation", "${_userInput['oxygenSaturation']}%"),
+              if (_userInput['temperature'].toString().isNotEmpty)
+                _buildReviewItem("Temperature", "${_userInput['temperature']}°C"),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Risk Factors Card
+          _buildReviewCard(
+            title: "Risk Factors",
+            icon: Icons.warning_amber_outlined,
+            iconColor: const Color(0xFFFFB703),
+            items: [
+              if (_userInput['hypertension'] == true)
+                _buildReviewItem("Medical", "Hypertension"),
+              if (_userInput['diabetes'] == true)
+                _buildReviewItem("", "Diabetes"),
+              if (_userInput['highCholesterol'] == true)
+                _buildReviewItem("", "High Cholesterol"),
+              if (_userInput['ckd'] == true)
+                _buildReviewItem("", "Chronic Kidney Disease"),
+              if (_userInput['smoking'] == true)
+                _buildReviewItem("Lifestyle", "Smoking"),
+              if (_userInput['obesity'] == true)
+                _buildReviewItem("", "Obesity"),
+              if (_userInput['familyHistory'] == true)
+                _buildReviewItem("Family History", "Heart Disease"),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildReviewCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required List<Widget> items,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ColorConstant.cardBorder,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: ColorConstant.bluedark,
+                  fontFamily: "Poppins",
+                ),
+              ),
+            ],
+          ),
+          if (items.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ...items,
+          ] else ...[
+            const SizedBox(height: 12),
+            Text(
+              "No information provided",
+              style: TextStyle(
+                fontSize: 14,
+                color: ColorConstant.gentleGray,
+                fontStyle: FontStyle.italic,
+                fontFamily: "Poppins",
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildReviewItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (label.isNotEmpty) ...[
+            Expanded(
+              flex: 2,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: ColorConstant.gentleGray,
+                  fontFamily: "Poppins",
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: ColorConstant.bluedark,
+                  fontFamily: "Poppins",
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "• $value",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: ColorConstant.bluedark,
+                  fontFamily: "Poppins",
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -956,22 +1494,6 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           ),
       ],
     );
-  }
-
-  void _validateAndUpdateInput(String key, String value, int minValue, int maxValue) {
-    if (value.isEmpty) {
-      _updateInput(key, '');
-      return;
-    }
-
-    final intValue = int.tryParse(value);
-    if (intValue == null) {
-      _updateInput(key, value);
-      return;
-    }
-
-    // Always update the value, validation is only for display purposes
-    _updateInput(key, value);
   }
 
   void _validateInputOnSubmit(String key, String value, int minValue, int maxValue) {
@@ -1178,17 +1700,17 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
     final result = _assessmentResult!;
     
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Risk category header
+          // Risk category header - Centered
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: _getRiskColor(result['riskCategory']).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: _getRiskColor(result['riskCategory']),
                 width: 2,
@@ -1196,44 +1718,141 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             ),
             child: Column(
               children: [
+                Icon(
+                  _getRiskIcon(result['riskCategory']),
+                  size: 56,
+                  color: _getRiskColor(result['riskCategory']),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   result['riskCategory'],
                   style: AppStyle.txtPoppinsSemiBold24Dark.copyWith(
                     color: _getRiskColor(result['riskCategory']),
+                    fontSize: 28,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   result['recommendedAction'],
-                  style: AppStyle.txtPoppinsSemiBold16Dark,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: ColorConstant.bluedark,
+                    fontFamily: "Poppins",
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           
-          // Risk heatmap visualization
-          _buildRiskHeatmap(result),
+          // Risk Heatmap - Collapsible & Centered
+          _buildCollapsibleSection(
+            title: "Risk Heatmap",
+            icon: Icons.grid_on,
+            isExpanded: _isHeatmapExpanded,
+            onTap: () => setState(() => _isHeatmapExpanded = !_isHeatmapExpanded),
+            child: _buildRiskHeatmap(result),
+          ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Comparison View - Show when AI and rule-based scores differ
+          if (result['hasDiscrepancy'] == true)
+            _buildCollapsibleSection(
+              title: "Assessment Comparison",
+              icon: Icons.compare_arrows,
+              isExpanded: _isComparisonExpanded,
+              onTap: () => setState(() => _isComparisonExpanded = !_isComparisonExpanded),
+              child: ValidationComparisonView(
+                aiResult: result,
+                isFilipino: Get.locale?.languageCode == 'fil',
+              ),
+            ),
+
+          if (result['hasDiscrepancy'] == true) const SizedBox(height: 16),
+
+          // Assessment Details - Collapsible (collapsed by default)
+          _buildCollapsibleSection(
+            title: "Assessment Details",
+            icon: Icons.analytics_outlined,
+            isExpanded: _isDetailsExpanded,
+            onTap: () => setState(() => _isDetailsExpanded = !_isDetailsExpanded),
+            child: _buildDetailedResults(result),
+          ),
           
-          // Detailed results
-          _buildDetailedResults(result),
+          const SizedBox(height: 16),
           
-          // Recommendations section
-          _buildRecommendationsSection(result),
+          // Recommendations - Collapsible (collapsed by default)
+          _buildCollapsibleSection(
+            title: "Personalized Recommendations",
+            icon: Icons.lightbulb_outline,
+            isExpanded: _isRecommendationsExpanded,
+            onTap: () => setState(() => _isRecommendationsExpanded = !_isRecommendationsExpanded),
+            child: _buildRecommendationsSection(result),
+          ),
           
-          // Medical disclaimer
-          _buildMedicalDisclaimer(),
+          const SizedBox(height: 24),
           
-          const SizedBox(height: 20),
+          // Medical Disclaimer - Concise version
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: ColorConstant.warmBeige,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: ColorConstant.cardBorder,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: ColorConstant.trustBlue,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Medical Disclaimer",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: ColorConstant.bluedark,
+                          fontFamily: "Poppins",
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "This assessment provides guidance only. Always consult healthcare professionals for proper diagnosis and treatment.",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ColorConstant.bluedark.withOpacity(0.8),
+                          fontFamily: "Poppins",
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           
-          // Action buttons
+          const SizedBox(height: 32),
+          
+          // Action buttons - Redesigned layout
           Column(
             children: [
-              // PDF Generation Row
+              // PDF Actions Row
               Row(
                 children: [
                   Expanded(
@@ -1245,16 +1864,24 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                           context,
                         );
                       },
-                      icon: Icon(Icons.share, size: 18),
-                      label: Text("Share Report"),
+                      icon: const Icon(Icons.share, size: 20),
+                      label: const Text("Share"),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.greenColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: Colors.white,
+                        foregroundColor: ColorConstant.trustBlue,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                        side: BorderSide(
+                          color: ColorConstant.trustBlue,
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
@@ -1264,95 +1891,291 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                           context,
                         );
                       },
-                      icon: Icon(Icons.download, size: 18),
-                      label: Text("Download PDF"),
+                      icon: const Icon(Icons.download, size: 20),
+                      label: const Text("Download"),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.blueColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: Colors.white,
+                        foregroundColor: ColorConstant.trustBlue,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                        side: BorderSide(
+                          color: ColorConstant.trustBlue,
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 15),
               
-              // Navigation Row
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _assessmentResult = null;
-                          _currentPage = 0;
-                          _pageController.animateToPage(0, 
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300],
-                        foregroundColor: ColorConstant.bluedark,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text("New Assessment"),
+              const SizedBox(height: 12),
+              
+              // Done Button (replaced New Assessment)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(Icons.check_circle, size: 22),
+                  label: const Text(
+                    "Done",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Get.back(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.bluedark,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text("Done"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ColorConstant.trustBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    shadowColor: ColorConstant.trustBlue.withOpacity(0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                ],
+                ),
               ),
+              
+              const SizedBox(height: 20),
+              
+              // Next Steps Button - Moved to bottom with emphasis
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _navigateToNextSteps,
+                  icon: const Icon(Icons.arrow_forward, size: 24),
+                  label: const Text(
+                    "Continue to Next Steps",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _getRiskColor(result['riskCategory']),
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shadowColor: _getRiskColor(result['riskCategory']).withOpacity(0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 8),
             ],
           ),
         ],
       ),
     );
   }
-
-  Widget _buildRiskHeatmap(Map<String, dynamic> result) {
+  
+  Widget _buildCollapsibleSection({
+    required String title,
+    required IconData icon,
+    required bool isExpanded,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ColorConstant.cardBorder,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          Text(
-            "Risk Assessment Heatmap",
-            style: AppStyle.txtPoppinsSemiBold18Dark,
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: ColorConstant.trustBlue.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: ColorConstant.trustBlue, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstant.bluedark,
+                        fontFamily: "Poppins",
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: ColorConstant.gentleGray,
+                    size: 28,
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
-          
-          // 5x5 heatmap grid
-          SizedBox(
-            width: 200,
-            height: 200,
+          if (isExpanded) ...[
+            Divider(
+              height: 1,
+              color: ColorConstant.cardBorder,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: child,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  IconData _getRiskIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'critical':
+        return Icons.emergency;
+      case 'high':
+        return Icons.warning;
+      case 'moderate':
+        return Icons.info;
+      case 'mild':
+        return Icons.check_circle;
+      case 'low':
+        return Icons.verified;
+      default:
+        return Icons.favorite;
+    }
+  }
+  
+  void _showHeatmapTooltip(int score, int x, int y) {
+    String riskLevel;
+    if (score <= 5) {
+      riskLevel = "Low Risk";
+    } else if (score <= 10) {
+      riskLevel = "Mild Risk";
+    } else if (score <= 15) {
+      riskLevel = "Moderate Risk";
+    } else if (score <= 20) {
+      riskLevel = "High Risk";
+    } else {
+      riskLevel = "Critical Risk";
+    }
+    
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 48,
+                color: _getHeatmapColor(score),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Score: $score",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: _getHeatmapColor(score),
+                  fontFamily: "Poppins",
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                riskLevel,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: ColorConstant.bluedark,
+                  fontFamily: "Poppins",
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Position: Row ${y + 1}, Column ${x + 1}",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: ColorConstant.gentleGray,
+                  fontFamily: "Poppins",
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _getHeatmapColor(score),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text("Got it"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRiskHeatmap(Map<String, dynamic> result) {
+    return Column(
+      children: [
+        // 5x5 heatmap grid - Centered
+        Center(
+          child: Container(
+            width: 240,
+            height: 240,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: ColorConstant.softWhite,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: ColorConstant.cardBorder,
+                width: 1,
+              ),
+            ),
             child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 5,
-                crossAxisSpacing: 2,
-                mainAxisSpacing: 2,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
               ),
               itemCount: 25,
               itemBuilder: (context, index) {
@@ -1364,21 +2187,45 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 bool isCurrentPosition = x == result['heatmapPosition']['x'] && 
                                        y == result['heatmapPosition']['y'];
                 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: cellColor,
-                    border: isCurrentPosition 
-                        ? Border.all(color: Colors.black, width: 3)
-                        : null,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Center(
-                    child: Text(
-                      score.toString(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                return GestureDetector(
+                  onTap: () {
+                    // Interactive: show tooltip
+                    _showHeatmapTooltip(score, x, y);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cellColor,
+                      border: isCurrentPosition 
+                          ? Border.all(color: Colors.white, width: 3)
+                          : null,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: isCurrentPosition ? [
+                        BoxShadow(
+                          color: cellColor.withOpacity(0.6),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ] : null,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (isCurrentPosition) 
+                            Icon(
+                              Icons.my_location,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          Text(
+                            score.toString(),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: isCurrentPosition ? FontWeight.w900 : FontWeight.bold,
+                              fontSize: isCurrentPosition ? 14 : 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1386,15 +2233,16 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               },
             ),
           ),
-          
-          const SizedBox(height: 10),
-          Text(
-            "Your Position: ${result['finalRiskScore']} (${result['likelihoodLevel']} × ${result['impactLevel']})",
-            style: AppStyle.txtPoppinsSemiBold14Dark,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        Text(
+          "Your Position: ${result['finalRiskScore']} (${result['likelihoodLevel']} × ${result['impactLevel']})",
+          style: AppStyle.txtPoppinsSemiBold14Dark,
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
@@ -1453,117 +2301,55 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       result['riskCategory']
     );
     
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: ColorConstant.lightBlueBackground,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: ColorConstant.bluedark.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Personalized Recommendations",
-            style: AppStyle.txtPoppinsSemiBold18Dark,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "Based on your assessment results, here are some recommendations to help improve your heart health:",
-            style: AppStyle.txtPoppinsSemiBold14Dark,
-          ),
-          const SizedBox(height: 16),
-          
-          // Display recommendations
-          ...recommendations.map((recommendation) => 
-            _buildRecommendationItem(recommendation)
-          ).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecommendationItem(String recommendation) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        recommendation,
-        style: AppStyle.txtPoppinsSemiBold14Dark.copyWith(
-          color: ColorConstant.bluedark.withOpacity(0.8),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMedicalDisclaimer() {
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: ColorConstant.redLightBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ColorConstant.redAccent.withOpacity(0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: ColorConstant.redAccent,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "Important Medical Disclaimer",
-                style: AppStyle.txtPoppinsSemiBold16Dark.copyWith(
-                  color: ColorConstant.redAccent,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Display recommendations as clean bullet list
+        ...recommendations.asMap().entries.map((entry) {
+          final index = entry.key;
+          final recommendation = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: ColorConstant.trustBlue.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    "${index + 1}",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: ColorConstant.trustBlue,
+                      fontFamily: "Poppins",
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "This app is designed to provide general health guidance and triage recommendations only. It does not:",
-            style: AppStyle.txtPoppinsSemiBold14Dark,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "• Make medical diagnoses\n"
-            "• Replace professional medical advice\n"
-            "• Provide emergency medical care\n"
-            "• Guarantee the accuracy of assessments",
-            style: AppStyle.txtPoppinsSemiBold14Dark,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "Always consult with qualified healthcare professionals for proper medical evaluation, diagnosis, and treatment. In case of emergency, call your local emergency number immediately.",
-            style: AppStyle.txtPoppinsSemiBold14Dark.copyWith(
-              fontWeight: FontWeight.w600,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    recommendation,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: ColorConstant.bluedark.withOpacity(0.85),
+                      fontFamily: "Poppins",
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+          );
+        }).toList(),
+      ],
     );
   }
+
 
   Widget _buildResultRow(String label, String value) {
     return Padding(

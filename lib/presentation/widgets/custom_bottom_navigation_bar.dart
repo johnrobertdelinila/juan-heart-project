@@ -6,7 +6,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
   final VoidCallback onPressHome,
       onPressPieChart,
       onPressSOS,
-      onPressNotification,
+      onPressAppointments,
       onPressProfile;
 
   const CustomBottomNavigationBar(
@@ -15,7 +15,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
       required this.onPressHome,
       required this.onPressPieChart,
       required this.onPressSOS,
-      required this.onPressNotification,
+      required this.onPressAppointments,
       required this.onPressProfile});
 
   @override
@@ -75,12 +75,13 @@ class CustomBottomNavigationBar extends StatelessWidget {
             ),
           ),
           _customButtonIcon(
-            onPressNotification,
-            Image.asset(
-              activeIndex == 2
-                  ? ImageConstant.iconNotificationDark
-                  : ImageConstant.iconNotificationLight,
-              fit: BoxFit.contain,
+            onPressAppointments,
+            Icon(
+              Icons.calendar_today,
+              color: activeIndex == 2
+                  ? ColorConstant.bluedark
+                  : ColorConstant.gentleGray,
+              size: 24,
             ),
           ),
           _customButtonIcon(

@@ -29,6 +29,7 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   bloc: ^8.1.1
+  connectivity_plus: ^5.0.2
   cookie_jar: ^3.0.1
   cupertino_icons: ^1.0.2
   equatable: ^2.0.5
@@ -47,8 +48,19 @@ dependencies:
   translator: ^0.1.7
   twilio_flutter: ^0.0.9
   pdf: ^3.10.7
-  path_provider: ^2.1.1
+  path_provider: ^2.1.5
   share_plus: ^7.2.1
+  url_launcher: ^6.2.1
+  intl: ^0.18.1
+  qr_flutter: ^4.1.0
+  uuid: ^4.2.1
+  flutter_local_notifications: ^18.0.1
+  file_picker: ^10.3.3
+  image_picker: ^1.2.0
+  # Firebase dependencies for Genkit AI assessment
+  firebase_core: ^2.24.2
+  firebase_remote_config: ^4.3.8
+  cloud_functions: ^4.6.7
 
 dev_dependencies:
   flutter_lints: ^2.0.0
