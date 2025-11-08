@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 
 /// Model representing a healthcare appointment
 class Appointment {
@@ -26,6 +27,7 @@ class Appointment {
   // Backend sync tracking
   final int? backendId; // Database ID from backend
   final String? syncStatus; // 'synced', 'pending', 'failed'
+  final String? syncErrorMessage; // Detailed error message for failed syncs
   final DateTime? lastSyncedAt;
   final DateTime createdAt; // When appointment was created locally
 
@@ -48,6 +50,7 @@ class Appointment {
     this.questionnaireStatus,
     this.backendId,
     this.syncStatus,
+    this.syncErrorMessage,
     this.lastSyncedAt,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -56,15 +59,15 @@ class Appointment {
   Color getStatusColor() {
     switch (status) {
       case AppointmentStatus.pending:
-        return const Color(0xFFFFA500); // Orange
+        return JHColors.warning; // Orange
       case AppointmentStatus.confirmed:
-        return const Color(0xFF4CAF50); // Green
+        return JHColors.success; // Green
       case AppointmentStatus.completed:
-        return const Color(0xFF2196F3); // Blue
+        return JHColors.info; // Blue
       case AppointmentStatus.cancelled:
-        return const Color(0xFFF44336); // Red
+        return JHColors.danger; // Red
       case AppointmentStatus.noShow:
-        return const Color(0xFF9E9E9E); // Grey
+        return JHColors.slate400; // Grey
     }
   }
 
@@ -213,18 +216,18 @@ class Appointment {
   /// Get questionnaire status badge color
   Color getQuestionnaireStatusColor() {
     if (questionnaireStatus == null) {
-      return const Color(0xFF9E9E9E); // Grey
+      return JHColors.slate400; // Grey
     }
 
     switch (questionnaireStatus) {
       case 'draft':
-        return const Color(0xFFFFA500); // Orange
+        return JHColors.warning; // Orange
       case 'submitted':
-        return const Color(0xFF4CAF50); // Green
+        return JHColors.success; // Green
       case 'reviewed':
-        return const Color(0xFF2196F3); // Blue
+        return JHColors.info; // Blue
       default:
-        return const Color(0xFF9E9E9E); // Grey
+        return JHColors.slate400; // Grey
     }
   }
 
@@ -249,6 +252,7 @@ class Appointment {
       'questionnaireStatus': questionnaireStatus,
       'backendId': backendId,
       'syncStatus': syncStatus,
+      'syncErrorMessage': syncErrorMessage,
       'lastSyncedAt': lastSyncedAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
     };
@@ -281,6 +285,7 @@ class Appointment {
       questionnaireStatus: json['questionnaireStatus'] as String?,
       backendId: json['backendId'] as int?,
       syncStatus: json['syncStatus'] as String?,
+      syncErrorMessage: json['syncErrorMessage'] as String?,
       lastSyncedAt: json['lastSyncedAt'] != null
           ? DateTime.parse(json['lastSyncedAt'] as String)
           : null,
@@ -310,6 +315,7 @@ class Appointment {
     String? questionnaireStatus,
     int? backendId,
     String? syncStatus,
+    String? syncErrorMessage,
     DateTime? lastSyncedAt,
     DateTime? createdAt,
   }) {
@@ -332,6 +338,7 @@ class Appointment {
       questionnaireStatus: questionnaireStatus ?? this.questionnaireStatus,
       backendId: backendId ?? this.backendId,
       syncStatus: syncStatus ?? this.syncStatus,
+      syncErrorMessage: syncErrorMessage ?? this.syncErrorMessage,
       lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       createdAt: createdAt ?? this.createdAt,
     );

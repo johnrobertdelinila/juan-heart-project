@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
 import 'package:juan_heart/services/assessment_sync_service.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service to manage user's assessment history and analytics
@@ -25,17 +26,17 @@ class AnalyticsService {
 
     // Sync to backend database (non-blocking)
     try {
-      print('🔄 Attempting to sync assessment to backend database...');
+      debugPrint('🔄 Attempting to sync assessment to backend database...');
       final syncResult = await AssessmentSyncService.syncAssessmentToBackend(record);
 
       if (syncResult['success'] == true) {
-        print('✅ Assessment synced to database successfully!');
-        print('📊 Database ID: ${syncResult['data']?['id']}');
+        debugPrint('✅ Assessment synced to database successfully!');
+        debugPrint('📊 Database ID: ${syncResult['data']?['id']}');
       } else {
-        print('⚠️ Assessment saved locally but sync failed: ${syncResult['message']}');
+        debugPrint('⚠️ Assessment saved locally but sync failed: ${syncResult['message']}');
       }
     } catch (e) {
-      print('⚠️ Assessment saved locally but sync error: $e');
+      debugPrint('⚠️ Assessment saved locally but sync error: $e');
       // Don't throw error - assessment is still saved locally
     }
   }
@@ -273,7 +274,7 @@ class AnalyticsService {
         title: 'Simulan ang Inyong Journey',
         message: 'Kumpletuhin ang inyong unang pagsusuri para masimulan ang pagsubaybay sa kalusugan ng puso.',
         icon: Icons.favorite,
-        color: const Color(0xFF4A90E2),
+        color: JHColors.info,
         type: 'neutral',
       ));
       return insights;
@@ -285,7 +286,7 @@ class AnalyticsService {
         title: '🎉 Magaling na Pag-unlad!',
         message: 'Gumaganda ang inyong puso! Patuloy na subaybayan at panatilihin ang malusog na gawi.',
         icon: Icons.trending_down,
-        color: const Color(0xFF32CD32),
+        color: JHColors.success,
         type: 'positive',
       ));
     } else if (stats.trendDirection == 'worsening') {
@@ -293,7 +294,7 @@ class AnalyticsService {
         title: '⚠️ Kailangan ng Atensyon',
         message: 'Konsultahin ang inyong doktor para sa payo. Hindi pa huli ang lahat!',
         icon: Icons.trending_up,
-        color: const Color(0xFFFF6347),
+        color: JHColors.danger,
         type: 'warning',
       ));
     } else {
@@ -301,7 +302,7 @@ class AnalyticsService {
         title: '✅ Patuloy na Subaybayan',
         message: 'Patuloy na subaybayan ang inyong kalusugan. Consistency is key!',
         icon: Icons.favorite,
-        color: const Color(0xFF4A90E2),
+        color: JHColors.info,
         type: 'neutral',
       ));
     }
@@ -314,7 +315,7 @@ class AnalyticsService {
         title: '🚨 Kailangan ng Medikal na Atensyon',
         message: 'Ang inyong pagsusuri ay nagpapakita ng mataas na panganib. Kumonsulta sa doktor agad.',
         icon: Icons.medical_services,
-        color: const Color(0xFFDC143C),
+        color: JHColors.dangerDark,
         type: 'critical',
       ));
     }
@@ -325,7 +326,7 @@ class AnalyticsService {
         title: 'Altapresyon - Bawasan ang Asin',
         message: 'Ang inyong BP ay mataas. Bawasan ang pagkain ng maalat at uminom ng maraming tubig.',
         icon: Icons.monitor_heart,
-        color: const Color(0xFFFFA500),
+        color: JHColors.warning,
         type: 'warning',
       ));
     }
@@ -335,7 +336,7 @@ class AnalyticsService {
         title: 'Mataas na Heart Rate',
         message: 'Mag-relax at mag-ehersisyo nang regular. Deep breathing exercises ay makakatulong.',
         icon: Icons.favorite,
-        color: const Color(0xFFFFA500),
+        color: JHColors.warning,
         type: 'warning',
       ));
     }
@@ -346,7 +347,7 @@ class AnalyticsService {
         title: '💪 Para sa Pamilya',
         message: 'Ang pagtigil sa paninigarilyo ay para sa inyong pamilya. Kayang-kaya ninyo!',
         icon: Icons.smoke_free,
-        color: const Color(0xFF4CAF50),
+        color: JHColors.success,
         type: 'positive',
       ));
     }
@@ -356,7 +357,7 @@ class AnalyticsService {
         title: '🥗 Malusog na Pagkain',
         message: 'Kumain ng mas maraming gulay at prutas. Iwasan ang processed foods.',
         icon: Icons.restaurant,
-        color: const Color(0xFF4CAF50),
+        color: JHColors.success,
         type: 'positive',
       ));
     }
@@ -367,7 +368,7 @@ class AnalyticsService {
         title: '📊 Consistent Monitoring',
         message: 'Magaling! Patuloy na subaybayan ang inyong kalusugan. Consistency is key!',
         icon: Icons.calendar_today,
-        color: const Color(0xFF32CD32),
+        color: JHColors.success,
         type: 'positive',
       ));
     }
@@ -378,7 +379,7 @@ class AnalyticsService {
         title: '🏆 Health Champion!',
         message: 'Kayo ay isang health champion! Patuloy na alagaan ang inyong puso.',
         icon: Icons.emoji_events,
-        color: const Color(0xFFFFD700),
+        color: JHColors.warning,
         type: 'positive',
       ));
     }
@@ -465,7 +466,7 @@ class AnalyticsService {
       
       // Simulate weight loss journey: starting at 85kg, gradually reducing
       final weight = 85.0 - (i * 0.8); // Losing ~0.8kg every 6 days
-      final height = 170.0; // Fixed height in cm
+      const height = 170.0; // Fixed height in cm
       final bmi = weight / ((height / 100) * (height / 100)); // BMI calculation
 
       mockRecords.add(AssessmentRecord(

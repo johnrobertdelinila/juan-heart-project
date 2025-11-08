@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 
 /// Model representing a single assessment record in user's history
 class AssessmentRecord {
@@ -82,15 +83,15 @@ class AssessmentRecord {
   Color getRiskColor() {
     switch (riskCategory.toLowerCase()) {
       case 'critical':
-        return const Color(0xFFDC143C); // Crimson Red
+        return JHColors.dangerDark; // Crimson Red
       case 'high':
-        return const Color(0xFFFF6347); // Tomato Red
+        return JHColors.danger; // Tomato Red
       case 'moderate':
-        return const Color(0xFFFFA500); // Orange
+        return JHColors.warning; // Orange
       case 'mild':
-        return const Color(0xFFFFD700); // Gold/Yellow
+        return JHColors.warning; // Gold/Yellow
       case 'low':
-        return const Color(0xFF32CD32); // Lime Green
+        return JHColors.success; // Lime Green
       default:
         return Colors.grey;
     }
