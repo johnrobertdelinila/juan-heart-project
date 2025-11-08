@@ -8,12 +8,19 @@ import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/user_model.dart';
 import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/service/ApiService.dart';
-import 'package:juan_heart/themes/app_styles.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:juan_heart/services/analytics_service.dart';
 import 'package:juan_heart/services/privacy_service.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
 import 'package:juan_heart/presentation/pages/settings/privacy_consent_dialog.dart';
+import 'package:juan_heart/presentation/widgets/sync_status_badge.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/presentation/pages/home/home.dart';
 import 'package:intl/intl.dart';
+import 'package:juan_heart/services/performance_service.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 
 class HomeScreen extends StatefulWidget {
   final apiService = ApiService();
@@ -29,14 +36,26 @@ class _HomeScreenState extends State<HomeScreen> {
   late FetchUserDataBloc fetchUserDataBloc;
   AssessmentRecord? _latestAssessment;
   RiskTrendStats? _trendStats;
+  Trace? _screenTrace;
 
   @override
   void initState() {
     super.initState();
+    _startScreenTrace();
     fetchUserDataBloc = FetchUserDataBloc();
     fetchUserDataBloc.add(const GetUserData());
     _loadDashboardData();
     _checkPrivacyConsent();
+  }
+
+  /// Start screen load performance trace
+  Future<void> _startScreenTrace() async {
+    _screenTrace = await PerformanceService.instance.startScreenTrace('home_screen');
+
+    // Stop trace after first frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PerformanceService.instance.stopScreenTrace(_screenTrace);
+    });
   }
 
   /// Check if user has given privacy consent and show dialog if not
@@ -108,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Center(
                 child: Text(
                   state.errorMessage,
-                  style: TextStyle(
+                  style: JHTextStyles.bodyBase.copyWith(
                     color: ColorConstant.whiteText,
                   ),
                 ),
@@ -179,23 +198,47 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            Get.locale?.languageCode == 'fil' ? 'Kumusta' : 'Hello',
-            style: AppStyle.txtPoppinsSemiBold28Light,
-          ),
-          Text(
-            user.fullName ?? 'User',
-            style: AppStyle.txtPoppinsBold28Dark,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      Get.locale?.languageCode == 'fil' ? 'Kumusta' : 'Hello',
+                      style: JHTextStyles.h3.copyWith(
+                        color: ColorConstant.bluedark,
+                      ),
+                    ),
+                    Text(
+                      user.fullName ?? 'User',
+                      style: JHTextStyles.h3.copyWith(
+                        color: ColorConstant.bluedark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Sync status badge
+              SyncStatusBadge(
+                onTap: () {
+                  // Navigate to Appointments screen (index 2 in bottom nav)
+                  Get.offAllNamed(
+                    AppRoutes.home,
+                    arguments: {'initialTab': 2},
+                  );
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
-            Get.locale?.languageCode == 'fil' 
+            Get.locale?.languageCode == 'fil'
               ? 'Alagaan natin ang inyong puso ngayon'
               : "Let's take care of your heart today",
-            style: TextStyle(
-              fontSize: 16,
+            style: JHTextStyles.bodyBase.copyWith(
               color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
             ),
           ),
         ],
@@ -217,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _getHeartTodayColor().withOpacity(0.3),
+            color: _getHeartTodayColor().withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -231,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -247,20 +290,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Text(
                       Get.locale?.languageCode == 'fil' ? 'Inyong Puso Ngayon' : 'Your Heart Today',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      style: JHTextStyles.h5.copyWith(
                         color: Colors.white,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _getHeartTodayMessage(),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                        fontFamily: 'Poppins',
+                      style: JHTextStyles.bodySmall.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -274,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -285,20 +323,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         Get.locale?.languageCode == 'fil' ? 'Risk Level' : 'Risk Level',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.8),
-                          fontFamily: 'Poppins',
+                        style: JHTextStyles.label.copyWith(
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _latestAssessment!.riskCategory,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        style: JHTextStyles.medicalData.copyWith(
                           color: Colors.white,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                     ],
@@ -308,20 +341,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         Get.locale?.languageCode == 'fil' ? 'Score' : 'Score',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.8),
-                          fontFamily: 'Poppins',
+                        style: JHTextStyles.label.copyWith(
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${_latestAssessment!.finalRiskScore} / 25',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        style: JHTextStyles.medicalData.copyWith(
                           color: Colors.white,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                     ],
@@ -331,55 +359,34 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              Get.locale?.languageCode == 'fil' 
+              Get.locale?.languageCode == 'fil'
                 ? 'Huling pagsusuri: ${DateFormat('MMM dd, yyyy').format(_latestAssessment!.date)}'
                 : 'Last checked: ${DateFormat('MMM dd, yyyy').format(_latestAssessment!.date)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withOpacity(0.8),
-                fontFamily: 'Poppins',
+              style: JHTextStyles.label.copyWith(
+                color: Colors.white.withValues(alpha: 0.8),
               ),
             ),
           ] else ...[
             const SizedBox(height: 20),
             Text(
-              Get.locale?.languageCode == 'fil' 
+              Get.locale?.languageCode == 'fil'
                 ? 'Wala pa kayong pagsusuri. Magsimula na tayo!'
                 : 'No assessments yet. Let\'s get started!',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white.withOpacity(0.9),
-                fontFamily: 'Poppins',
+              style: JHTextStyles.bodySmall.copyWith(
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ],
           
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
-              },
-              icon: const Icon(Icons.favorite, color: Colors.white),
-              label: Text(
-                Get.locale?.languageCode == 'fil' ? 'Suriin ang Aking Puso' : 'Check My Heart',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: _getHeartTodayColor(),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-            ),
+          StandardButton.secondary(
+            text: Get.locale?.languageCode == 'fil' ? 'Suriin ang Aking Puso' : 'Check My Heart',
+            onPressed: () {
+              showCustomDialog(
+                context,
+                targetRoute: AppRoutes.medicalTriageAssessmentScreen,
+              );
+            },
           ),
         ],
       ),
@@ -393,14 +400,17 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            Get.locale?.languageCode == 'fil' ? '💓 Vital Signs' : '💓 Vital Signs',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C3E50),
-              fontFamily: 'Poppins',
-            ),
+          Row(
+            children: [
+              const Icon(Icons.monitor_heart, size: 24, color: JHColors.midnightBlue),
+              const SizedBox(width: 8),
+              Text(
+                Get.locale?.languageCode == 'fil' ? 'Vital Signs' : 'Vital Signs',
+                style: JHTextStyles.h4.copyWith(
+                  color: const JHColors.midnightBlue,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           if (_latestAssessment != null) ...[
@@ -450,13 +460,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ] else ...[
-            Container(
+            StandardCard(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: ColorConstant.softWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ColorConstant.cardBorder),
-              ),
               child: Center(
                 child: Column(
                   children: [
@@ -467,13 +472,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      Get.locale?.languageCode == 'fil' 
+                      Get.locale?.languageCode == 'fil'
                         ? 'Kumpletuhin ang pagsusuri para makita ang vital signs'
                         : 'Complete an assessment to see your vital signs',
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: JHTextStyles.bodySmall.copyWith(
                         color: ColorConstant.gentleGray,
-                        fontFamily: 'Poppins',
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -496,28 +499,19 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.trending_up, size: 24, color: const Color(0xFF2C3E50)),
+              const Icon(Icons.trending_up, size: 24, color: JHColors.midnightBlue),
               const SizedBox(width: 8),
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Pag-unlad' : 'Progress',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C3E50),
-                  fontFamily: 'Poppins',
+                style: JHTextStyles.h4.copyWith(
+                  color: const JHColors.midnightBlue,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           if (_trendStats != null && _trendStats!.totalAssessments > 1) ...[
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: ColorConstant.softWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ColorConstant.cardBorder),
-              ),
+            StandardCard(
               child: Column(
                 children: [
                   Row(
@@ -531,11 +525,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: Text(
                           _getProgressMessage(),
-                          style: TextStyle(
-                            fontSize: 16,
+                          style: JHTextStyles.bodyBase.copyWith(
                             fontWeight: FontWeight.bold,
                             color: ColorConstant.bluedark,
-                            fontFamily: 'Poppins',
                           ),
                         ),
                       ),
@@ -548,13 +540,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ] else ...[
-            Container(
+            StandardCard(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: ColorConstant.softWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ColorConstant.cardBorder),
-              ),
               child: Center(
                 child: Column(
                   children: [
@@ -565,13 +552,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      Get.locale?.languageCode == 'fil' 
+                      Get.locale?.languageCode == 'fil'
                         ? 'Kumpletuhin ang maraming pagsusuri para makita ang inyong pag-unlad'
                         : 'Complete more assessments to see your progress',
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: JHTextStyles.bodySmall.copyWith(
                         color: ColorConstant.gentleGray,
-                        fontFamily: 'Poppins',
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -592,23 +577,20 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            Get.locale?.languageCode == 'fil' ? '🧭 Susunod na Hakbang' : '🧭 Next Step',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C3E50),
-              fontFamily: 'Poppins',
-            ),
+          Row(
+            children: [
+              const Icon(Icons.trending_up, size: 24, color: JHColors.midnightBlue),
+              const SizedBox(width: 8),
+              Text(
+                Get.locale?.languageCode == 'fil' ? 'Susunod na Hakbang' : 'Next Step',
+                style: JHTextStyles.h4.copyWith(
+                  color: const JHColors.midnightBlue,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: _getRecommendationColor().withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _getRecommendationColor().withOpacity(0.3)),
-            ),
+          StandardCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -623,11 +605,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: Text(
                         _getRecommendationTitle(),
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: JHTextStyles.bodyBase.copyWith(
                           fontWeight: FontWeight.bold,
                           color: ColorConstant.bluedark,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                     ),
@@ -636,45 +616,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 Text(
                   _getRecommendationMessage(),
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: JHTextStyles.bodySmall.copyWith(
                     color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      if (_latestAssessment != null) {
-                        Get.toNamed(AppRoutes.nextStepsScreen, arguments: {
-                          'riskScore': _latestAssessment!.finalRiskScore,
-                          'riskCategory': _latestAssessment!.riskCategory,
-                        });
-                      } else {
-                        Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
-                      }
-                    },
-                    icon: Icon(Icons.arrow_forward, color: Colors.white),
-                    label: Text(
-                      Get.locale?.languageCode == 'fil' ? 'Hanapin ang Klinika' : 'Find a Clinic',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _getRecommendationColor(),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
+                StandardButton.primary(
+                  text: Get.locale?.languageCode == 'fil' ? 'Hanapin ang Klinika' : 'Find a Clinic',
+                  onPressed: () {
+                    if (_latestAssessment != null) {
+                      Get.toNamed(AppRoutes.nextStepsScreen, arguments: {
+                        'riskScore': _latestAssessment!.finalRiskScore,
+                        'riskCategory': _latestAssessment!.riskCategory,
+                      });
+                    } else {
+                      Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
+                    }
+                  },
                 ),
               ],
             ),
@@ -694,25 +653,26 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                Get.locale?.languageCode == 'fil' ? '📚 Health Corner' : '📚 Health Corner',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C3E50),
-                  fontFamily: 'Poppins',
-                ),
+              Row(
+                children: [
+                  const Icon(Icons.school, size: 24, color: JHColors.midnightBlue),
+                  const SizedBox(width: 8),
+                  Text(
+                    Get.locale?.languageCode == 'fil' ? 'Edukasyon sa Kalusugan' : 'Health Education',
+                    style: JHTextStyles.h4.copyWith(
+                      color: const JHColors.midnightBlue,
+                    ),
+                  ),
+                ],
               ),
               TextButton(
                 onPressed: () {
-                  Get.toNamed(AppRoutes.healthCornerScreen);
+                  Get.toNamed(AppRoutes.educationalContentListScreen);
                 },
                 child: Text(
                   Get.locale?.languageCode == 'fil' ? 'Tingnan Lahat' : 'View All',
-                  style: TextStyle(
+                  style: JHTextStyles.button.copyWith(
                     color: ColorConstant.trustBlue,
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -763,26 +723,29 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            Get.locale?.languageCode == 'fil' ? '🏅 Patuloy na Pagsusuri' : '🏅 Assessment Streak',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C3E50),
-              fontFamily: 'Poppins',
-            ),
+          Row(
+            children: [
+              const Icon(Icons.whatshot, size: 24, color: JHColors.midnightBlue),
+              const SizedBox(width: 8),
+              Text(
+                Get.locale?.languageCode == 'fil' ? 'Patuloy na Pagsusuri' : 'Assessment Streak',
+                style: JHTextStyles.h4.copyWith(
+                  color: const JHColors.midnightBlue,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [ColorConstant.trustBlue.withOpacity(0.1), ColorConstant.trustBlue.withOpacity(0.05)],
+                colors: [ColorConstant.trustBlue.withValues(alpha: 0.1), ColorConstant.trustBlue.withValues(alpha: 0.05)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: ColorConstant.trustBlue.withOpacity(0.3)),
+              border: Border.all(color: ColorConstant.trustBlue.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -792,7 +755,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: ColorConstant.trustBlue,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.local_fire_department,
                     color: Colors.white,
                     size: 24,
@@ -804,14 +767,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        Get.locale?.languageCode == 'fil' 
+                        Get.locale?.languageCode == 'fil'
                           ? '$streak buwan na sunod-sunod!'
                           : '$streak months in a row!',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        style: JHTextStyles.h5.copyWith(
                           color: ColorConstant.bluedark,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -819,30 +779,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         Get.locale?.languageCode == 'fil'
                           ? 'Magaling! Patuloy na subaybayan ang inyong kalusugan.'
                           : 'Great! Keep monitoring your health regularly.',
-                        style: TextStyle(
-                          fontSize: 13,
+                        style: JHTextStyles.caption.copyWith(
                           color: ColorConstant.gentleGray,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                     ],
                   ),
                 ),
                 if (daysSinceLastAssessment >= 7) ...[
-                  ElevatedButton(
+                  StandardButton.compact(
+                    text: Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
                     onPressed: () {
                       Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF9800),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text(
-                      Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
-                      style: TextStyle(fontSize: 12, fontFamily: 'Poppins'),
-                    ),
                   ),
                 ],
               ],
@@ -862,15 +811,12 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.public, size: 24, color: const Color(0xFF2C3E50)),
+              const Icon(Icons.public, size: 24, color: JHColors.midnightBlue),
               const SizedBox(width: 8),
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Komunidad at Events' : 'Community & Events',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C3E50),
-                  fontFamily: 'Poppins',
+                style: JHTextStyles.h4.copyWith(
+                  color: const JHColors.midnightBlue,
                 ),
               ),
             ],
@@ -892,26 +838,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  Get.locale?.languageCode == 'fil' 
+                  Get.locale?.languageCode == 'fil'
                     ? 'Sumali sa PHC Free Heart Screening Day sa Pebrero!'
                     : 'Join PHC\'s Free Heart Screening Day this February!',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: JHTextStyles.bodyBase.copyWith(
                     fontWeight: FontWeight.bold,
                     color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  Get.locale?.languageCode == 'fil' 
+                  Get.locale?.languageCode == 'fil'
                     ? 'Paparating na ang mga tampok na event at announcement!'
                     : 'More events and announcements coming soon!',
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: JHTextStyles.bodySmall.copyWith(
                     color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -933,15 +875,15 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_latestAssessment!.riskCategory.toLowerCase()) {
       case 'low':
-        return [const Color(0xFF4CAF50), const Color(0xFF8BC34A)];
+        return [const JHColors.success, const JHColors.success];
       case 'mild':
-        return [const Color(0xFFFF9800), const Color(0xFFFFB74D)];
+        return [const JHColors.warning, const JHColors.warning];
       case 'moderate':
-        return [const Color(0xFFFF5722), const Color(0xFFFF8A65)];
+        return [const JHColors.danger, const JHColors.warning];
       case 'high':
-        return [const Color(0xFFF44336), const Color(0xFFEF5350)];
+        return [const JHColors.danger, const JHColors.danger];
       case 'critical':
-        return [const Color(0xFF9C27B0), const Color(0xFFBA68C8)];
+        return [const JHColors.heartRed, const JHColors.heartRed];
       default:
         return [ColorConstant.trustBlue, ColorConstant.bluelight];
     }
@@ -952,15 +894,15 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_latestAssessment!.riskCategory.toLowerCase()) {
       case 'low':
-        return const Color(0xFF4CAF50);
+        return const JHColors.success;
       case 'mild':
-        return const Color(0xFFFF9800);
+        return const JHColors.warning;
       case 'moderate':
-        return const Color(0xFFFF5722);
+        return const JHColors.danger;
       case 'high':
-        return const Color(0xFFF44336);
+        return const JHColors.danger;
       case 'critical':
-        return const Color(0xFF9C27B0);
+        return const JHColors.heartRed;
       default:
         return ColorConstant.trustBlue;
     }
@@ -1025,32 +967,26 @@ class _HomeScreenState extends State<HomeScreen> {
     Color statusColor;
     switch (status.toLowerCase()) {
       case 'normal':
-        statusColor = const Color(0xFF4CAF50);
+        statusColor = const JHColors.success;
         break;
       case 'elevated':
-        statusColor = const Color(0xFFFF9800);
+        statusColor = const JHColors.warning;
         break;
       case 'critical':
-        statusColor = const Color(0xFFF44336);
+        statusColor = const JHColors.danger;
         break;
       default:
         statusColor = ColorConstant.gentleGray;
     }
 
-    return GestureDetector(
+    return AccentCard(
+      accentColor: statusColor,
       onTap: () {
         // Navigate to detailed analytics
         Get.toNamed(AppRoutes.analyticsScreen);
       },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: statusColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: statusColor.withOpacity(0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -1058,10 +994,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: JHTextStyles.label.copyWith(
                     color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
                   ),
                 ),
               ],
@@ -1069,25 +1003,19 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 8),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              style: JHTextStyles.medicalDataSmall.copyWith(
                 color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
               ),
             ),
             const SizedBox(height: 4),
             Text(
               status,
-              style: TextStyle(
-                fontSize: 11,
+              style: JHTextStyles.caption.copyWith(
                 color: statusColor,
-                fontFamily: 'Poppins',
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -1152,9 +1080,9 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_trendStats!.trendDirection) {
       case 'improving':
-        return const Color(0xFF4CAF50);
+        return const JHColors.success;
       case 'worsening':
-        return const Color(0xFFF44336);
+        return const JHColors.danger;
       default:
         return ColorConstant.trustBlue;
     }
@@ -1181,7 +1109,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildMiniTrendChart() {
     // Simple mini trend visualization
-    return Container(
+    return SizedBox(
       height: 60,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1191,7 +1119,7 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 8,
             height: height,
             decoration: BoxDecoration(
-              color: _getTrendColor().withOpacity(0.7),
+              color: _getTrendColor().withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -1206,15 +1134,15 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_latestAssessment!.riskCategory.toLowerCase()) {
       case 'low':
-        return const Color(0xFF4CAF50);
+        return const JHColors.success;
       case 'mild':
-        return const Color(0xFFFF9800);
+        return const JHColors.warning;
       case 'moderate':
-        return const Color(0xFFFF5722);
+        return const JHColors.danger;
       case 'high':
-        return const Color(0xFFF44336);
+        return const JHColors.danger;
       case 'critical':
-        return const Color(0xFF9C27B0);
+        return const JHColors.heartRed;
       default:
         return ColorConstant.trustBlue;
     }
@@ -1311,15 +1239,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Health Corner Preview Helpers
   Widget _buildHealthTipCard(String title, IconData icon, Color color) {
-    return Container(
+    return AccentCard(
       width: 180,
+      accentColor: color,
       margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1331,22 +1254,18 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               fontWeight: FontWeight.bold,
               color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            Get.locale?.languageCode == 'fil' 
+            Get.locale?.languageCode == 'fil'
               ? 'Matuto pa tungkol sa kalusugan ng puso'
               : 'Learn more about heart health',
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.label.copyWith(
               color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
             ),
           ),
         ],

@@ -1,5 +1,5 @@
 /// Enhanced UI Components for Heart Assessment Feature
-/// 
+///
 /// Provides conversational, guided, and emotionally intelligent
 /// assessment experience aligned with the referral system design
 ///
@@ -12,27 +12,29 @@
 
 import 'package:flutter/material.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 
 /// Animated heart logo for welcome and loading states
 class AnimatedHeartLogo extends StatefulWidget {
   final double size;
   final Color color;
-  
+
   const AnimatedHeartLogo({
     Key? key,
     this.size = 120,
-    this.color = const Color(0xFFE63946),
+    this.color = const JHColors.danger,
   }) : super(key: key);
-  
+
   @override
   State<AnimatedHeartLogo> createState() => _AnimatedHeartLogoState();
 }
 
-class _AnimatedHeartLogoState extends State<AnimatedHeartLogo> 
+class _AnimatedHeartLogoState extends State<AnimatedHeartLogo>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -40,18 +42,18 @@ class _AnimatedHeartLogoState extends State<AnimatedHeartLogo>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return ScaleTransition(
@@ -70,24 +72,24 @@ class AssessmentWelcomeCard extends StatelessWidget {
   final String userName;
   final String language;
   final VoidCallback onStart;
-  
+
   const AssessmentWelcomeCard({
     Key? key,
     required this.userName,
     required this.language,
     required this.onStart,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFFE0F2FE),
+            JHColors.infoLight,
             Colors.white,
           ],
         ),
@@ -96,41 +98,36 @@ class AssessmentWelcomeCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Animated heart
-          const AnimatedHeartLogo(size: 100, color: Color(0xFFE63946)),
-          
+          const AnimatedHeartLogo(size: 100, color: JHColors.danger),
+
           const SizedBox(height: 32),
-          
+
           // Personalized greeting
           Text(
-            language == 'fil' 
+            language == 'fil'
                 ? 'Hi${userName.isNotEmpty ? " $userName" : ""}! Tingnan natin ang kalusugan ng puso mo.'
                 : 'Hi${userName.isNotEmpty ? " $userName" : ""}! Let\'s check your heart health.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF212529),
-              height: 1.3,
+            style: JHTextStyles.h2.copyWith(
+              color: const JHColors.slate900,
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Subtext
           Text(
             language == 'fil'
                 ? 'Sagutan ang ilang mabilis na tanong para malaman ang iyong heart risk. Tatagal lang ng 2 minuto.'
                 : 'Answer a few quick questions to assess your heart risk. It\'ll take less than 2 minutes.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
+            style: JHTextStyles.bodyBase.copyWith(
               color: ColorConstant.gentleGray,
-              height: 1.6,
             ),
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // Start button with pulse animation
           SizedBox(
             width: double.infinity,
@@ -138,10 +135,10 @@ class AssessmentWelcomeCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onStart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E5BBA),
+                backgroundColor: const JHColors.infoDark,
                 foregroundColor: Colors.white,
                 elevation: 3,
-                shadowColor: const Color(0xFF2E5BBA).withOpacity(0.4),
+                shadowColor: const JHColors.infoDark.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -152,9 +149,10 @@ class AssessmentWelcomeCard extends StatelessWidget {
                   const Icon(Icons.play_arrow, size: 28),
                   const SizedBox(width: 12),
                   Text(
-                    language == 'fil' ? 'Simulan ang Assessment' : 'Start Assessment',
-                    style: const TextStyle(
-                      fontSize: 18,
+                    language == 'fil'
+                        ? 'Simulan ang Assessment'
+                        : 'Start Assessment',
+                    style: JHTextStyles.h5.copyWith(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
                     ),
@@ -163,16 +161,16 @@ class AssessmentWelcomeCard extends StatelessWidget {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Privacy note
           _buildPrivacyNote(language),
         ],
       ),
     );
   }
-  
+
   Widget _buildPrivacyNote(String language) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -197,10 +195,8 @@ class AssessmentWelcomeCard extends StatelessWidget {
               language == 'fil'
                   ? 'Ang iyong data ay ligtas at private. Hindi ito ibabahagi.'
                   : 'Your data is safe and private. We don\'t share your information.',
-              style: TextStyle(
-                fontSize: 12,
-                color: ColorConstant.bluedark.withOpacity(0.8),
-                height: 1.4,
+              style: JHTextStyles.caption.copyWith(
+                color: ColorConstant.bluedark.withValues(alpha: 0.8),
               ),
             ),
           ),
@@ -215,32 +211,35 @@ class AssessmentProgressIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;
   final String language;
-  
+
   const AssessmentProgressIndicator({
     Key? key,
     required this.currentStep,
     required this.totalSteps,
     required this.language,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     final progress = currentStep / totalSteps;
-    final stepText = language == 'fil' 
+    final stepText = language == 'fil'
         ? 'Hakbang $currentStep ng $totalSteps'
         : 'Step $currentStep of $totalSteps';
-    
+
     String encouragement = '';
     if (currentStep == 1) {
-      encouragement = language == 'fil' ? 'Nagsisimula pa lang!' : 'Just getting started!';
+      encouragement =
+          language == 'fil' ? 'Nagsisimula pa lang!' : 'Just getting started!';
     } else if (currentStep == totalSteps ~/ 2) {
-      encouragement = language == 'fil' ? 'Kalahati na! Magaling!' : 'Halfway there! Great job!';
+      encouragement = language == 'fil'
+          ? 'Kalahati na! Magaling!'
+          : 'Halfway there! Great job!';
     } else if (currentStep == totalSteps - 1) {
       encouragement = language == 'fil' ? 'Halos tapos na!' : 'Almost done!';
     } else if (currentStep > 1) {
       encouragement = language == 'fil' ? 'Mahusay!' : 'You\'re doing great!';
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -260,8 +259,7 @@ class AssessmentProgressIndicator extends StatelessWidget {
             children: [
               Text(
                 stepText,
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
                   color: ColorConstant.bluedark,
                 ),
@@ -269,9 +267,9 @@ class AssessmentProgressIndicator extends StatelessWidget {
               if (encouragement.isNotEmpty)
                 Text(
                   encouragement,
-                  style: TextStyle(
+                  style: JHTextStyles.caption.copyWith(
                     fontSize: 13,
-                    color: const Color(0xFF4CAF50),
+                    color: const JHColors.success,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -283,8 +281,8 @@ class AssessmentProgressIndicator extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: ColorConstant.cardBorder,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                const Color(0xFF2E5BBA),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                JHColors.infoDark,
               ),
               minHeight: 6,
             ),
@@ -301,7 +299,7 @@ class QuestionCard extends StatelessWidget {
   final String? hint;
   final Widget child;
   final String? emoji;
-  
+
   const QuestionCard({
     Key? key,
     required this.question,
@@ -309,7 +307,7 @@ class QuestionCard extends StatelessWidget {
     required this.child,
     this.emoji,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -320,7 +318,7 @@ class QuestionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -339,22 +337,18 @@ class QuestionCard extends StatelessWidget {
           ],
           Text(
             question,
-            style: const TextStyle(
+            style: JHTextStyles.h3.copyWith(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF212529),
-              height: 1.3,
+              color: const JHColors.slate900,
             ),
           ),
           if (hint != null) ...[
             const SizedBox(height: 12),
             Text(
               hint!,
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: ColorConstant.gentleGray,
                 fontStyle: FontStyle.italic,
-                height: 1.5,
               ),
             ),
           ],
@@ -373,7 +367,7 @@ class ToggleChipGroup extends StatelessWidget {
   final String? selectedValue;
   final Function(String) onSelected;
   final Color? activeColor;
-  
+
   const ToggleChipGroup({
     Key? key,
     required this.options,
@@ -382,7 +376,7 @@ class ToggleChipGroup extends StatelessWidget {
     required this.onSelected,
     this.activeColor,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Wrap(
@@ -390,8 +384,8 @@ class ToggleChipGroup extends StatelessWidget {
       runSpacing: 12,
       children: List.generate(options.length, (index) {
         final isSelected = selectedValue == optionsValues[index];
-        final color = activeColor ?? const Color(0xFF2E5BBA);
-        
+        final color = activeColor ?? const JHColors.infoDark;
+
         return InkWell(
           onTap: () => onSelected(optionsValues[index]),
           borderRadius: BorderRadius.circular(12),
@@ -408,7 +402,7 @@ class ToggleChipGroup extends StatelessWidget {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: color.withOpacity(0.3),
+                        color: color.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -417,8 +411,7 @@ class ToggleChipGroup extends StatelessWidget {
             ),
             child: Text(
               options[index],
-              style: TextStyle(
-                fontSize: 16,
+              style: JHTextStyles.bodyBase.copyWith(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 color: isSelected ? Colors.white : ColorConstant.bluedark,
               ),
@@ -436,7 +429,7 @@ class SegmentedControl extends StatelessWidget {
   final List<IconData>? icons;
   final int selectedIndex;
   final Function(int) onSelected;
-  
+
   const SegmentedControl({
     Key? key,
     required this.options,
@@ -444,7 +437,7 @@ class SegmentedControl extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -461,7 +454,7 @@ class SegmentedControl extends StatelessWidget {
           final isSelected = index == selectedIndex;
           final isFirst = index == 0;
           final isLast = index == options.length - 1;
-          
+
           return Expanded(
             child: InkWell(
               onTap: () => onSelected(index),
@@ -473,7 +466,8 @@ class SegmentedControl extends StatelessWidget {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF2E5BBA) : Colors.transparent,
+                  color:
+                      isSelected ? const JHColors.infoDark : Colors.transparent,
                   borderRadius: BorderRadius.horizontal(
                     left: isFirst ? const Radius.circular(12) : Radius.zero,
                     right: isLast ? const Radius.circular(12) : Radius.zero,
@@ -485,16 +479,19 @@ class SegmentedControl extends StatelessWidget {
                     if (icons != null)
                       Icon(
                         icons![index],
-                        color: isSelected ? Colors.white : ColorConstant.gentleGray,
+                        color: isSelected
+                            ? Colors.white
+                            : ColorConstant.gentleGray,
                         size: 28,
                       ),
                     if (icons != null) const SizedBox(height: 8),
                     Text(
                       options[index],
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                        color: isSelected ? Colors.white : ColorConstant.bluedark,
+                      style: JHTextStyles.bodyBase.copyWith(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w600,
+                        color:
+                            isSelected ? Colors.white : ColorConstant.bluedark,
                       ),
                     ),
                   ],
@@ -517,7 +514,7 @@ class AssessmentTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final bool showValidation;
-  
+
   const AssessmentTextField({
     Key? key,
     required this.label,
@@ -528,22 +525,23 @@ class AssessmentTextField extends StatelessWidget {
     this.validator,
     this.showValidation = false,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
-    final errorText = showValidation && validator != null && controller.text.isNotEmpty
-        ? validator!(controller.text) 
-        : null;
-    
+    final errorText =
+        showValidation && validator != null && controller.text.isNotEmpty
+            ? validator!(controller.text)
+            : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: JHTextStyles.bodySmall.copyWith(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF212529),
+            color: const JHColors.slate900,
           ),
         ),
         const SizedBox(height: 12),
@@ -552,8 +550,8 @@ class AssessmentTextField extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: errorText != null 
-                  ? const Color(0xFFE63946)
+              color: errorText != null
+                  ? const JHColors.danger
                   : ColorConstant.cardBorder,
               width: 1.5,
             ),
@@ -564,14 +562,13 @@ class AssessmentTextField extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   keyboardType: keyboardType,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: JHTextStyles.h5.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF212529),
+                    color: const JHColors.slate900,
                   ),
                   decoration: InputDecoration(
                     hintText: hint,
-                    hintStyle: TextStyle(
+                    hintStyle: JHTextStyles.bodyBase.copyWith(
                       color: ColorConstant.gentleGray,
                       fontWeight: FontWeight.normal,
                     ),
@@ -588,8 +585,7 @@ class AssessmentTextField extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 20),
                   child: Text(
                     unit!,
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: JHTextStyles.bodyBase.copyWith(
                       fontWeight: FontWeight.w500,
                       color: ColorConstant.gentleGray,
                     ),
@@ -605,14 +601,14 @@ class AssessmentTextField extends StatelessWidget {
               const Icon(
                 Icons.error_outline,
                 size: 16,
-                color: Color(0xFFE63946),
+                color: JHColors.danger,
               ),
               const SizedBox(width: 6),
               Text(
                 errorText,
-                style: const TextStyle(
+                style: JHTextStyles.caption.copyWith(
                   fontSize: 13,
-                  color: Color(0xFFE63946),
+                  color: const JHColors.danger,
                 ),
               ),
             ],
@@ -628,14 +624,14 @@ class MilestoneFeedback extends StatelessWidget {
   final String message;
   final IconData icon;
   final String language;
-  
+
   const MilestoneFeedback({
     Key? key,
     required this.message,
     required this.icon,
     required this.language,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -643,13 +639,13 @@ class MilestoneFeedback extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF4CAF50).withOpacity(0.15),
-            const Color(0xFF4CAF50).withOpacity(0.05),
+            const JHColors.success.withValues(alpha: 0.15),
+            const JHColors.success.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF4CAF50).withOpacity(0.3),
+          color: const JHColors.success.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -658,12 +654,12 @@ class MilestoneFeedback extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.2),
+              color: const JHColors.success.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: const Color(0xFF4CAF50),
+              color: const JHColors.success,
               size: 28,
             ),
           ),
@@ -671,10 +667,9 @@ class MilestoneFeedback extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                fontSize: 16,
+              style: JHTextStyles.bodyBase.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF212529),
+                color: const JHColors.slate900,
               ),
             ),
           ),
@@ -691,7 +686,7 @@ class SummaryReviewCard extends StatelessWidget {
   final List<MapEntry<String, String>> items;
   final VoidCallback onEdit;
   final String language;
-  
+
   const SummaryReviewCard({
     Key? key,
     required this.title,
@@ -700,7 +695,7 @@ class SummaryReviewCard extends StatelessWidget {
     required this.onEdit,
     required this.language,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -715,7 +710,7 @@ class SummaryReviewCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -729,12 +724,12 @@ class SummaryReviewCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2E5BBA).withOpacity(0.12),
+                  color: const JHColors.infoDark.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   icon,
-                  color: const Color(0xFF2E5BBA),
+                  color: const JHColors.infoDark,
                   size: 20,
                 ),
               ),
@@ -742,10 +737,10 @@ class SummaryReviewCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: JHTextStyles.h5.copyWith(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF212529),
+                    color: const JHColors.slate900,
                   ),
                 ),
               ),
@@ -757,18 +752,17 @@ class SummaryReviewCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.edit_outlined,
                         size: 18,
-                        color: const Color(0xFF2E5BBA),
+                        color: JHColors.infoDark,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         language == 'fil' ? 'I-edit' : 'Edit',
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: JHTextStyles.bodySmall.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF2E5BBA),
+                          color: const JHColors.infoDark,
                         ),
                       ),
                     ],
@@ -787,8 +781,7 @@ class SummaryReviewCard extends StatelessWidget {
                       flex: 2,
                       child: Text(
                         item.key,
-                        style: TextStyle(
-                          fontSize: 14,
+                        style: JHTextStyles.bodySmall.copyWith(
                           color: ColorConstant.gentleGray,
                         ),
                       ),
@@ -797,10 +790,9 @@ class SummaryReviewCard extends StatelessWidget {
                       flex: 3,
                       child: Text(
                         item.value,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: JHTextStyles.bodySmall.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF212529),
+                          color: const JHColors.slate900,
                         ),
                       ),
                     ),
@@ -816,12 +808,12 @@ class SummaryReviewCard extends StatelessWidget {
 /// Analyzing animation for results
 class AnalyzingAnimation extends StatelessWidget {
   final String language;
-  
+
   const AnalyzingAnimation({
     Key? key,
     required this.language,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -830,39 +822,37 @@ class AnalyzingAnimation extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // ECG-style wave animation
-          const AnimatedHeartLogo(size: 80, color: Color(0xFFE63946)),
-          
+          const AnimatedHeartLogo(size: 80, color: JHColors.danger),
+
           const SizedBox(height: 32),
-          
+
           Text(
-            language == 'fil' 
+            language == 'fil'
                 ? 'Sinusuri ang iyong resulta...'
                 : 'Analyzing your results...',
-            style: const TextStyle(
+            style: JHTextStyles.h3.copyWith(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF212529),
+              color: const JHColors.slate900,
             ),
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           Text(
             language == 'fil'
                 ? 'Sandali lang po, nag-aayos kami ng iyong heart risk score'
                 : 'Just a moment, we\'re calculating your heart risk score',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: JHTextStyles.bodySmall.copyWith(
               fontSize: 15,
               color: ColorConstant.gentleGray,
-              height: 1.5,
             ),
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E5BBA)),
+            valueColor: AlwaysStoppedAnimation<Color>(JHColors.infoDark),
             strokeWidth: 3,
           ),
         ],
@@ -879,7 +869,7 @@ class ExpandableSymptomCard extends StatefulWidget {
   final bool isSelected;
   final Widget detailsWidget;
   final Function(bool) onExpanded;
-  
+
   const ExpandableSymptomCard({
     Key? key,
     required this.symptomName,
@@ -889,17 +879,17 @@ class ExpandableSymptomCard extends StatefulWidget {
     required this.detailsWidget,
     required this.onExpanded,
   }) : super(key: key);
-  
+
   @override
   State<ExpandableSymptomCard> createState() => _ExpandableSymptomCardState();
 }
 
-class _ExpandableSymptomCardState extends State<ExpandableSymptomCard> 
+class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
     with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late AnimationController _animationController;
   late Animation<double> _rotationAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -911,13 +901,13 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
   }
-  
+
   void _toggleExpanded() {
     setState(() {
       _isExpanded = !_isExpanded;
@@ -930,25 +920,25 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
       }
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: widget.isSelected 
-            ? const Color(0xFF2E5BBA).withOpacity(0.08)
+        color: widget.isSelected
+            ? const JHColors.infoDark.withValues(alpha: 0.08)
             : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: widget.isSelected
-              ? const Color(0xFF2E5BBA)
+              ? const JHColors.infoDark
               : ColorConstant.cardBorder,
           width: widget.isSelected ? 2 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -967,14 +957,14 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: widget.isSelected
-                          ? const Color(0xFF2E5BBA).withOpacity(0.15)
+                          ? const JHColors.infoDark.withValues(alpha: 0.15)
                           : ColorConstant.softWhite,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       widget.icon,
                       color: widget.isSelected
-                          ? const Color(0xFF2E5BBA)
+                          ? const JHColors.infoDark
                           : ColorConstant.gentleGray,
                       size: 24,
                     ),
@@ -986,18 +976,17 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
                       children: [
                         Text(
                           widget.symptomName,
-                          style: TextStyle(
-                            fontSize: 16,
+                          style: JHTextStyles.bodyBase.copyWith(
                             fontWeight: FontWeight.bold,
                             color: widget.isSelected
-                                ? const Color(0xFF2E5BBA)
-                                : const Color(0xFF212529),
+                                ? const JHColors.infoDark
+                                : const JHColors.slate900,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           widget.symptomDescription,
-                          style: TextStyle(
+                          style: JHTextStyles.caption.copyWith(
                             fontSize: 13,
                             color: ColorConstant.gentleGray,
                           ),
@@ -1010,7 +999,7 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
                     child: Icon(
                       Icons.keyboard_arrow_down,
                       color: widget.isSelected
-                          ? const Color(0xFF2E5BBA)
+                          ? const JHColors.infoDark
                           : ColorConstant.gentleGray,
                     ),
                   ),
@@ -1056,7 +1045,7 @@ class VitalRangeIndicator extends StatelessWidget {
   final Color? normalColor;
   final Color? warningColor;
   final Color? dangerColor;
-  
+
   const VitalRangeIndicator({
     Key? key,
     required this.label,
@@ -1070,13 +1059,13 @@ class VitalRangeIndicator extends StatelessWidget {
     this.warningColor,
     this.dangerColor,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
-    final normal = normalColor ?? const Color(0xFF4CAF50);
-    final warning = warningColor ?? const Color(0xFFFFA726);
-    final danger = dangerColor ?? const Color(0xFFE63946);
-    
+    final normal = normalColor ?? const JHColors.success;
+    final warning = warningColor ?? const JHColors.warning;
+    final danger = dangerColor ?? const JHColors.danger;
+
     Color getColor() {
       if (value == null) return ColorConstant.gentleGray;
       if (value! < minNormal || value! > maxNormal) {
@@ -1087,7 +1076,7 @@ class VitalRangeIndicator extends StatelessWidget {
       }
       return normal;
     }
-    
+
     String getStatus() {
       if (value == null) return 'Not entered';
       if (value! < minNormal || value! > maxNormal) {
@@ -1098,14 +1087,14 @@ class VitalRangeIndicator extends StatelessWidget {
       }
       return 'Normal';
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: getColor().withOpacity(0.08),
+        color: getColor().withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: getColor().withOpacity(0.3),
+          color: getColor().withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
@@ -1117,16 +1106,16 @@ class VitalRangeIndicator extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF212529),
+                  color: const JHColors.slate900,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: getColor().withOpacity(0.15),
+                  color: getColor().withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -1144,7 +1133,7 @@ class VitalRangeIndicator extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       getStatus(),
-                      style: TextStyle(
+                      style: JHTextStyles.caption.copyWith(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: getColor(),
@@ -1162,9 +1151,7 @@ class VitalRangeIndicator extends StatelessWidget {
               children: [
                 Text(
                   value!.toStringAsFixed(value! % 1 == 0 ? 0 : 1),
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+                  style: JHTextStyles.h2.copyWith(
                     color: getColor(),
                     height: 1,
                   ),
@@ -1174,8 +1161,7 @@ class VitalRangeIndicator extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
                     unit,
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: JHTextStyles.bodyBase.copyWith(
                       fontWeight: FontWeight.w600,
                       color: getColor(),
                     ),
@@ -1186,8 +1172,7 @@ class VitalRangeIndicator extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Normal range: $minNormal-$maxNormal $unit',
-              style: TextStyle(
-                fontSize: 12,
+              style: JHTextStyles.caption.copyWith(
                 color: ColorConstant.gentleGray,
               ),
             ),
@@ -1207,7 +1192,7 @@ class LargeActionButton extends StatelessWidget {
   final Color? foregroundColor;
   final bool isLoading;
   final bool isSecondary;
-  
+
   const LargeActionButton({
     Key? key,
     required this.text,
@@ -1218,14 +1203,14 @@ class LargeActionButton extends StatelessWidget {
     this.isLoading = false,
     this.isSecondary = false,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
-    final bgColor = backgroundColor ?? 
-        (isSecondary ? ColorConstant.softWhite : const Color(0xFF2E5BBA));
-    final fgColor = foregroundColor ?? 
-        (isSecondary ? const Color(0xFF212529) : Colors.white);
-    
+    final bgColor = backgroundColor ??
+        (isSecondary ? ColorConstant.softWhite : const JHColors.infoDark);
+    final fgColor = foregroundColor ??
+        (isSecondary ? const JHColors.slate900 : Colors.white);
+
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -1235,7 +1220,7 @@ class LargeActionButton extends StatelessWidget {
           backgroundColor: bgColor,
           foregroundColor: fgColor,
           elevation: isSecondary ? 0 : 2,
-          shadowColor: bgColor.withOpacity(0.4),
+          shadowColor: bgColor.withValues(alpha: 0.4),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: isSecondary
@@ -1261,7 +1246,7 @@ class LargeActionButton extends StatelessWidget {
                   ],
                   Text(
                     text,
-                    style: const TextStyle(
+                    style: JHTextStyles.h5.copyWith(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.3,
@@ -1273,4 +1258,3 @@ class LargeActionButton extends StatelessWidget {
     );
   }
 }
-

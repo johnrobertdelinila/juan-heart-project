@@ -6,6 +6,10 @@ import 'package:juan_heart/models/appointment_model.dart';
 import 'package:juan_heart/services/questionnaire_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 
 class PreConsultationScreen extends StatefulWidget {
   final Appointment appointment;
@@ -22,9 +26,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
   List<Question> _questions = [];
   bool _isLoading = true;
   bool _isSaving = false;
-  Map<String, dynamic> _answers = {};
-  Map<String, List<String>> _uploadedFiles = {}; // questionId -> file paths
-  Set<String> _prefilledFields = {}; // Track which fields were pre-filled from assessment
+  final Map<String, dynamic> _answers = {};
+  final Map<String, List<String>> _uploadedFiles = {}; // questionId -> file paths
+  final Set<String> _prefilledFields = {}; // Track which fields were pre-filled from assessment
 
   @override
   void initState() {
@@ -45,11 +49,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
         widget.appointment.id,
       );
 
-      if (existing == null) {
-        existing = await QuestionnaireService.createQuestionnaire(
+      existing ??= await QuestionnaireService.createQuestionnaire(
           widget.appointment.id,
         );
-      }
 
       // Load existing answers into map
       for (final answer in existing.answers) {
@@ -332,7 +334,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
           isFilipino
               ? 'I-reload ang datos ng assessment?'
               : 'Reload from Assessment?',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: JHTextStyles.h4,
         ),
         content: Text(
           isFilipino
@@ -527,7 +529,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             isFilipino
                 ? 'May kulang na sagot'
                 : 'Missing Required Fields',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -542,19 +544,19 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               ...missingFields.take(5).map((field) => Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text('• $field',
-                        style: TextStyle(fontSize: 13)),
+                        style: JHTextStyles.bodySmall.copyWith(fontSize: 13)),
                   )),
               if (missingFields.length > 5)
                 Text(
                   '... ${isFilipino ? 'at iba pa' : 'and ${missingFields.length - 5} more'}',
-                  style: TextStyle(fontStyle: FontStyle.italic),
+                  style: JHTextStyles.bodySmall.copyWith(fontStyle: FontStyle.italic),
                 ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Get.back(),
-              child: Text('OK'),
+              child: const Text('OK'),
             ),
           ],
         ),
@@ -581,10 +583,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               const SizedBox(width: 12),
               Text(
                 isFilipino ? 'Naisumite!' : 'Submitted!',
-                style: TextStyle(
+                style: JHTextStyles.h4.copyWith(
                   color: Colors.green[700],
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
                 ),
               ),
             ],
@@ -593,7 +593,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             isFilipino
                 ? 'Ang iyong pre-consultation questionnaire ay naisumite na. Makikita ng doktor ito bago ang inyong appointment.'
                 : 'Your pre-consultation questionnaire has been submitted successfully. The doctor will review it before your appointment.',
-            style: const TextStyle(fontSize: 14, height: 1.5),
+            style: JHTextStyles.bodyBase.copyWith(height: 1.5),
           ),
           actions: [
             TextButton(
@@ -603,9 +603,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               },
               child: Text(
                 'OK',
-                style: TextStyle(
+                style: JHTextStyles.button.copyWith(
                   color: ColorConstant.lightRed,
-                  fontWeight: FontWeight.w600,
                   fontSize: 16,
                 ),
               ),
@@ -685,6 +684,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
       appBar: AppBar(
         backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
@@ -693,9 +693,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
           isFilipino ? 'Pre-Consultation Form' : 'Pre-Consultation Form',
           style: TextStyle(
             color: ColorConstant.bluedark,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
+            
+            fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
@@ -711,7 +710,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                         color: ColorConstant.lightRed,
                       ),
                     )
-                  : Icon(Icons.save_outlined, size: 20),
+                  : const Icon(Icons.save_outlined, size: 20),
               label: Text(isFilipino ? 'I-save' : 'Save'),
               style: TextButton.styleFrom(
                 foregroundColor: ColorConstant.lightRed,
@@ -760,13 +759,15 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             ),
       floatingActionButton: widget.appointment.assessmentData != null &&
               _questionnaire?.status == QuestionnaireStatus.draft
-          ? FloatingActionButton.extended(
-              onPressed: _reloadFromAssessment,
-              backgroundColor: ColorConstant.lightRed,
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              label: Text(
-                isFilipino ? 'I-reload' : 'Reload',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ? SafeArea(
+              child: FloatingActionButton.extended(
+                onPressed: _reloadFromAssessment,
+                backgroundColor: ColorConstant.lightRed,
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                label: Text(
+                  isFilipino ? 'I-reload' : 'Reload',
+                  style: JHTextStyles.button.copyWith(color: Colors.white),
+                ),
               ),
             )
           : null,
@@ -782,7 +783,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -796,16 +797,13 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             children: [
               Text(
                 isFilipino ? 'Progress' : 'Progress',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                style: JHTextStyles.button.copyWith(
                   color: ColorConstant.bluedark,
                 ),
               ),
               Text(
                 '${_questionnaire!.progressPercentage}%',
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.button.copyWith(
                   fontWeight: FontWeight.bold,
                   color: ColorConstant.lightRed,
                 ),
@@ -843,10 +841,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               isFilipino
                   ? 'Ang datos ng assessment mula ${_getAssessmentDate()} - Pakisukat mabuti'
                   : 'Assessment data from ${_getAssessmentDate()} - Please review carefully',
-              style: TextStyle(
+              style: JHTextStyles.bodySmall.copyWith(
                 fontSize: 13,
                 color: Colors.orange[900],
-                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -856,12 +853,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
   }
 
   Widget _buildIntroductionCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -873,10 +867,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     isFilipino
                         ? 'Tungkol sa Form na Ito'
                         : 'About This Form',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Poppins',
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -888,8 +880,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               isFilipino
                   ? 'Pakisagutan ang form na ito bago ang inyong teleconsultation appointment. Ang impormasyong ito ay tutulong sa doktor na maghanda para sa inyong consultation at magbigay ng mas epektibong pangangalaga.'
                   : 'Please complete this form before your teleconsultation appointment. This information will help the doctor prepare for your consultation and provide more effective care.',
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodyBase.copyWith(
                 height: 1.5,
                 color: Colors.grey[700],
               ),
@@ -898,7 +889,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: ColorConstant.lightRed.withOpacity(0.1),
+                color: ColorConstant.lightRed.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -911,10 +902,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                       isFilipino
                           ? 'Ang inyong impormasyon ay ligtas at confidential'
                           : 'Your information is secure and confidential',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: JHTextStyles.label.copyWith(
                         color: ColorConstant.lightRed,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -923,7 +912,6 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -988,10 +976,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
       padding: const EdgeInsets.only(top: 8, bottom: 12),
       child: Text(
         title,
-        style: TextStyle(
+        style: JHTextStyles.h4.copyWith(
           fontSize: 18,
-          fontWeight: FontWeight.bold,
-          fontFamily: 'Poppins',
           color: ColorConstant.bluedark,
         ),
       ),
@@ -1020,13 +1006,10 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
   Widget _buildTextQuestion(Question question, bool isFilipino) {
     final isPrefilled = _prefilledFields.contains(question.id);
 
-    return Card(
-      elevation: 1,
-      color: isPrefilled ? Color(0xFFF0F8FF) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1038,9 +1021,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 Expanded(
                   child: Text(
                     question.getQuestionText(isFilipino),
-                    style: TextStyle(
+                    style: JHTextStyles.button.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1048,10 +1030,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 if (question.isRequired)
                   Text(
                     '*',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       color: Colors.red,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
               ],
@@ -1080,20 +1061,16 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildNumberQuestion(Question question, bool isFilipino) {
     final isPrefilled = _prefilledFields.contains(question.id);
 
-    return Card(
-      elevation: 1,
-      color: isPrefilled ? Color(0xFFF0F8FF) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1105,9 +1082,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 Expanded(
                   child: Text(
                     question.getQuestionText(isFilipino),
-                    style: TextStyle(
+                    style: JHTextStyles.button.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1115,10 +1091,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 if (question.isRequired)
                   Text(
                     '*',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       color: Colors.red,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
               ],
@@ -1128,7 +1103,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '${question.minValue}-${question.maxValue}${question.unit ?? ''}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: JHTextStyles.caption.copyWith(color: Colors.grey[600]),
                 ),
               ),
             const SizedBox(height: 12),
@@ -1154,7 +1129,6 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1162,13 +1136,10 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final currentValue = _answers[question.id]?.toString();
     final isPrefilled = _prefilledFields.contains(question.id);
 
-    return Card(
-      elevation: 1,
-      color: isPrefilled ? Color(0xFFF0F8FF) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1180,9 +1151,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 Expanded(
                   child: Text(
                     question.getQuestionText(isFilipino),
-                    style: TextStyle(
+                    style: JHTextStyles.button.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1190,10 +1160,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 if (question.isRequired)
                   Text(
                     '*',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       color: Colors.red,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
               ],
@@ -1224,7 +1193,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     ),
                     child: Text(
                       isFilipino ? 'Oo' : 'Yes',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: JHTextStyles.button,
                     ),
                   ),
                 ),
@@ -1252,7 +1221,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     ),
                     child: Text(
                       isFilipino ? 'Hindi' : 'No',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: JHTextStyles.button,
                     ),
                   ),
                 ),
@@ -1260,7 +1229,6 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1269,13 +1237,10 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final options = question.getOptions(isFilipino) ?? [];
     final isPrefilled = _prefilledFields.contains(question.id);
 
-    return Card(
-      elevation: 1,
-      color: isPrefilled ? Color(0xFFF0F8FF) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1287,9 +1252,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 Expanded(
                   child: Text(
                     question.getQuestionText(isFilipino),
-                    style: TextStyle(
+                    style: JHTextStyles.button.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1297,10 +1261,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 if (question.isRequired)
                   Text(
                     '*',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       color: Colors.red,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
               ],
@@ -1321,7 +1284,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? ColorConstant.lightRed.withOpacity(0.1)
+                          ? ColorConstant.lightRed.withValues(alpha: 0.1)
                           : Colors.transparent,
                       border: Border.all(
                         color: isSelected
@@ -1346,8 +1309,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                         Expanded(
                           child: Text(
                             option,
-                            style: TextStyle(
-                              fontSize: 14,
+                            style: JHTextStyles.bodyBase.copyWith(
                               color: isSelected
                                   ? ColorConstant.bluedark
                                   : Colors.grey[700],
@@ -1365,7 +1327,6 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             }).toList(),
           ],
         ),
-      ),
     );
   }
 
@@ -1380,13 +1341,10 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final options = question.getOptions(isFilipino) ?? [];
     final isPrefilled = _prefilledFields.contains(question.id);
 
-    return Card(
-      elevation: 1,
-      color: isPrefilled ? Color(0xFFF0F8FF) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1398,9 +1356,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 Expanded(
                   child: Text(
                     question.getQuestionText(isFilipino),
-                    style: TextStyle(
+                    style: JHTextStyles.button.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1408,10 +1365,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 if (question.isRequired)
                   Text(
                     '*',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       color: Colors.red,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
               ],
@@ -1422,7 +1378,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 isFilipino
                     ? 'Maaaring pumili ng marami'
                     : 'You can select multiple',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: JHTextStyles.caption.copyWith(color: Colors.grey[600]),
               ),
             ),
             const SizedBox(height: 12),
@@ -1446,7 +1402,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? ColorConstant.lightRed.withOpacity(0.1)
+                          ? ColorConstant.lightRed.withValues(alpha: 0.1)
                           : Colors.transparent,
                       border: Border.all(
                         color: isSelected
@@ -1471,8 +1427,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                         Expanded(
                           child: Text(
                             option,
-                            style: TextStyle(
-                              fontSize: 14,
+                            style: JHTextStyles.bodyBase.copyWith(
                               color: isSelected
                                   ? ColorConstant.bluedark
                                   : Colors.grey[700],
@@ -1490,19 +1445,15 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             }).toList(),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildFileUploadQuestion(Question question, bool isFilipino) {
     final uploadedFiles = _uploadedFiles[question.id] ?? [];
 
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -1510,9 +1461,8 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 Expanded(
                   child: Text(
                     question.getQuestionText(isFilipino),
-                    style: TextStyle(
+                    style: JHTextStyles.button.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1520,10 +1470,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                 if (question.isRequired)
                   Text(
                     '*',
-                    style: TextStyle(
+                    style: JHTextStyles.h4.copyWith(
                       color: Colors.red,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
               ],
@@ -1532,7 +1481,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 'PDF, JPG, PNG',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: JHTextStyles.caption.copyWith(color: Colors.grey[600]),
               ),
             ),
             const SizedBox(height: 12),
@@ -1546,7 +1495,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     icon: const Icon(Icons.photo_library, size: 20),
                     label: Text(
                       isFilipino ? 'Larawan' : 'Photo',
-                      style: const TextStyle(fontSize: 13),
+                      style: JHTextStyles.bodySmall.copyWith(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: ColorConstant.lightRed,
@@ -1562,7 +1511,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                     icon: const Icon(Icons.attach_file, size: 20),
                     label: Text(
                       isFilipino ? 'File' : 'File',
-                      style: const TextStyle(fontSize: 13),
+                      style: JHTextStyles.bodySmall.copyWith(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: ColorConstant.lightRed,
@@ -1602,7 +1551,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                         Expanded(
                           child: Text(
                             fileName,
-                            style: const TextStyle(fontSize: 13),
+                            style: JHTextStyles.bodySmall.copyWith(fontSize: 13),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1622,33 +1571,13 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
             ],
           ],
         ),
-      ),
     );
   }
 
   Widget _buildSubmitButton(bool isFilipino) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _submitQuestionnaire,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: ColorConstant.lightRed,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-        ),
-        child: Text(
-          isFilipino ? 'Isumite ang Questionnaire' : 'Submit Questionnaire',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
-          ),
-        ),
-      ),
+    return StandardButton.primary(
+      text: isFilipino ? 'Isumite ang Questionnaire' : 'Submit Questionnaire',
+      onPressed: _submitQuestionnaire,
     );
   }
 
@@ -1670,11 +1599,9 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
               children: [
                 Text(
                   isFilipino ? 'Naisumite na' : 'Submitted',
-                  style: TextStyle(
+                  style: JHTextStyles.h4.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
                     color: Colors.green[700],
-                    fontFamily: 'Poppins',
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1682,7 +1609,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
                   isFilipino
                       ? 'Nasuri na ng doktor ang inyong questionnaire'
                       : 'Your questionnaire has been reviewed by the doctor',
-                  style: TextStyle(
+                  style: JHTextStyles.bodySmall.copyWith(
                     fontSize: 13,
                     color: Colors.green[800],
                   ),

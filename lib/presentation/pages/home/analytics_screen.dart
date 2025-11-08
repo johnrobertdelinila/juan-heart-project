@@ -7,8 +7,13 @@ import 'package:juan_heart/services/analytics_service.dart';
 import 'package:juan_heart/services/analytics_pdf_service.dart';
 import 'package:juan_heart/services/analytics_csv_service.dart';
 import 'package:juan_heart/presentation/widgets/date_range_selector.dart';
-import 'package:juan_heart/themes/app_styles.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:intl/intl.dart';
+import 'package:juan_heart/services/performance_service.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 
 /// Heart Insights Center - Redesigned Analytics Screen
 /// 
@@ -29,6 +34,7 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool _isLoading = true;
+  Trace? _screenTrace;
 
   // Data
   List<AssessmentRecord> _history = [];
@@ -51,7 +57,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   void initState() {
     super.initState();
+    _startScreenTrace();
     _loadAnalyticsData();
+  }
+
+  /// Start screen load performance trace
+  Future<void> _startScreenTrace() async {
+    _screenTrace = await PerformanceService.instance.startScreenTrace('analytics_screen');
+
+    // Stop trace after first frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PerformanceService.instance.stopScreenTrace(_screenTrace);
+    });
   }
 
   @override
@@ -116,36 +133,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Scaffold(
       backgroundColor: ColorConstant.softWhite,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Heart Insights Center",
-              style: TextStyle(
-                fontFamily: "Poppins",
-                color: ColorConstant.bluedark,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
-            Text(
-              "Your Cardiovascular Health Journey",
-              style: TextStyle(
-                fontFamily: "Poppins",
-                color: ColorConstant.gentleGray,
-                fontWeight: FontWeight.w400,
-                fontSize: 12,
-              ),
-            ),
-          ],
+        centerTitle: true,
+        title: Text(
+          "Insights",
+          style: JHTextStyles.h2.copyWith(color: ColorConstant.bluedark),
         ),
         actions: [
           IconButton(
             icon: Icon(Icons.language, color: ColorConstant.trustBlue),
             onPressed: () {
-              // Toggle between English and Filipino
               final currentLocale = Get.locale?.languageCode ?? 'en';
               final newLocale = currentLocale == 'en' ? 'fil' : 'en';
               Get.updateLocale(Locale(newLocale));
@@ -168,7 +166,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Loading your health insights...',
-                    style: AppStyle.txtPoppinsSemiBold16Dark,
+                    style: JHTextStyles.bodyBase.copyWith(
+                      color: ColorConstant.bluedark,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -243,23 +244,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       children: [
         Text(
           Get.locale?.languageCode == 'fil' ? 'Kalusugan ng Puso' : 'Heart Health',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: ColorConstant.bluedark,
-            fontFamily: 'Poppins',
-          ),
+          style: JHTextStyles.h2.copyWith(color: ColorConstant.bluedark),
         ),
         const SizedBox(height: 8),
         Text(
           Get.locale?.languageCode == 'fil' 
             ? 'Tingnan ang inyong pag-unlad sa kalusugan'
             : 'See how your health is progressing',
-          style: TextStyle(
-            fontSize: 14,
-            color: ColorConstant.gentleGray,
-            fontFamily: 'Poppins',
-          ),
+          style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.gentleGray),
         ),
         const SizedBox(height: 20),
         
@@ -298,30 +290,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final trend = _trendStats!.trendDirection;
     final isImproving = trend == 'improving';
     final isWorsening = trend == 'worsening';
-    
-    return Container(
+
+    final accentColor = isImproving
+      ? const JHColors.success
+      : isWorsening
+      ? const JHColors.danger
+      : ColorConstant.trustBlue;
+
+    return AccentCard(
+      accentColor: accentColor,
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isImproving 
-            ? [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)]
-            : isWorsening
-            ? [const Color(0xFFFFEBEE), const Color(0xFFFFCDD2)]
-            : [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isImproving 
-            ? const Color(0xFF4CAF50)
-            : isWorsening
-            ? const Color(0xFFF44336)
-            : ColorConstant.trustBlue,
-          width: 2,
-        ),
-      ),
       child: Column(
         children: [
           // Progress Icon
@@ -332,7 +311,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -346,9 +325,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 : Icons.trending_flat,
               size: 32,
               color: isImproving 
-                ? const Color(0xFF4CAF50)
+                ? const JHColors.success
                 : isWorsening
-                ? const Color(0xFFF44336)
+                ? const JHColors.danger
                 : ColorConstant.trustBlue,
             ),
           ),
@@ -357,12 +336,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           // Progress Message
           Text(
             _getProgressMessage(trend),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
@@ -370,11 +344,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           // Encouraging Subtitle
           Text(
             _getProgressSubtitle(trend),
-            style: TextStyle(
-              fontSize: 14,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.gentleGray),
             textAlign: TextAlign.center,
           ),
         ],
@@ -420,20 +390,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
+    return AccentCard(
+      accentColor: color,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ColorConstant.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -442,7 +401,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -452,21 +411,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 12,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
           ),
         ],
       ),
@@ -493,12 +443,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [ColorConstant.trustBlue.withOpacity(0.1), ColorConstant.trustBlue.withOpacity(0.05)],
+                colors: [ColorConstant.trustBlue.withValues(alpha: 0.1), ColorConstant.trustBlue.withValues(alpha: 0.05)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: ColorConstant.trustBlue.withOpacity(0.3)),
+              border: Border.all(color: ColorConstant.trustBlue.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -508,7 +458,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     color: ColorConstant.trustBlue,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.local_fire_department,
                     color: Colors.white,
                     size: 24,
@@ -521,25 +471,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     children: [
                       Text(
                         Get.locale?.languageCode == 'fil' 
-                          ? '${streak} buwan na sunod-sunod!'
-                          : '${streak} months in a row!',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstant.bluedark,
-                          fontFamily: 'Poppins',
-                        ),
+                          ? '$streak buwan na sunod-sunod!'
+                          : '$streak months in a row!',
+                        style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         Get.locale?.languageCode == 'fil'
                           ? 'Magaling! Patuloy na subaybayan ang inyong kalusugan.'
                           : 'Great! Keep monitoring your health regularly.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: ColorConstant.gentleGray,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray),
                       ),
                     ],
                   ),
@@ -554,15 +495,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
+                color: const JHColors.warningLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFB74D)),
+                border: Border.all(color: const JHColors.warning),
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.schedule,
-                    color: const Color(0xFFFF9800),
+                    color: JHColors.warning,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -574,42 +515,24 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           Get.locale?.languageCode == 'fil'
                             ? 'Oras na para sa bagong pagsusuri!'
                             : 'Time for a new assessment!',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: ColorConstant.bluedark,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           Get.locale?.languageCode == 'fil'
                             ? 'Huling pagsusuri: $daysSinceLastAssessment araw na ang nakalipas'
                             : 'Last assessment: $daysSinceLastAssessment days ago',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: ColorConstant.gentleGray,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       ],
                     ),
                   ),
-                  ElevatedButton(
+                  StandardButton.compact(
+                    text: Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
                     onPressed: () {
                       // Navigate to assessment
                       Get.back(); // Go to home where FAB is available
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF9800),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text(
-                      Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
-                      style: TextStyle(fontSize: 12, fontFamily: 'Poppins'),
-                    ),
                   ),
                 ],
               ),
@@ -708,11 +631,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 Get.locale?.languageCode == 'fil' 
                   ? 'Tingnan ang lahat ng insights'
                   : 'View all insights',
-                style: TextStyle(
-                  color: ColorConstant.trustBlue,
-                  fontFamily: 'Poppins',
-                  fontSize: 13,
-                ),
+                style: JHTextStyles.caption.copyWith(color: ColorConstant.trustBlue),
               ),
             ),
           ],
@@ -722,27 +641,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildRefinedInsightCard(HealthInsight insight) {
-    return Container(
+    return StandardCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: insight.color.withOpacity(0.2), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: insight.color.withOpacity(0.1),
+              color: insight.color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(insight.icon, color: insight.color, size: 20),
@@ -754,22 +661,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   insight.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   insight.message,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
-                    height: 1.4,
-                  ),
+                  style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray, height: 1.4),
                 ),
               ],
             ),
@@ -812,11 +709,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       getTitlesWidget: (value, meta) {
                         return Text(
                           value.toInt().toString(),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 11,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         );
                       },
                     ),
@@ -832,18 +725,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             DateFormat('MMM d').format(date),
-                            style: TextStyle(
-                              color: ColorConstant.gentleGray,
-                              fontSize: 10,
-                              fontFamily: 'Poppins',
-                            ),
+                            style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                           ),
                         );
                       },
                     ),
                   ),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
                 minX: 0,
@@ -879,8 +768,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          ColorConstant.trustBlue.withOpacity(0.3),
-                          ColorConstant.trustBlue.withOpacity(0.05),
+                          ColorConstant.trustBlue.withValues(alpha: 0.3),
+                          ColorConstant.trustBlue.withValues(alpha: 0.05),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -895,12 +784,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         final record = _history[spot.x.toInt()];
                         return LineTooltipItem(
                           '${record.riskCategory}\nScore: ${record.finalRiskScore}\n${DateFormat('MMM d').format(record.date)}',
-                          TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            fontFamily: 'Poppins',
-                          ),
+                          JHTextStyles.label.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                         );
                       }).toList();
                     },
@@ -921,11 +805,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       spacing: 12,
       runSpacing: 8,
       children: [
-        _buildLegendItem('Low', const Color(0xFF32CD32)),
-        _buildLegendItem('Mild', const Color(0xFFFFD700)),
-        _buildLegendItem('Moderate', const Color(0xFFFFA500)),
-        _buildLegendItem('High', const Color(0xFFFF6347)),
-        _buildLegendItem('Critical', const Color(0xFFDC143C)),
+        _buildLegendItem('Low', const JHColors.success),
+        _buildLegendItem('Mild', const JHColors.warning),
+        _buildLegendItem('Moderate', const JHColors.warning),
+        _buildLegendItem('High', const JHColors.danger),
+        _buildLegendItem('Critical', const JHColors.dangerDark),
       ],
     );
   }
@@ -945,11 +829,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: ColorConstant.gentleGray,
-            fontFamily: 'Poppins',
-          ),
+          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
         ),
       ],
     );
@@ -1011,12 +891,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       children: [
         Text(
           Get.locale?.languageCode == 'fil' ? 'Presyon ng Dugo' : 'Blood Pressure',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: ColorConstant.bluedark,
-            fontFamily: 'Poppins',
-          ),
+          style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
         ),
         const SizedBox(height: 12),
         Container(
@@ -1037,7 +912,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   // Highlight normal range
                   if (value == 120 || value == 90) {
                     return FlLine(
-                      color: const Color(0xFF4CAF50).withOpacity(0.3),
+                      color: const JHColors.success.withValues(alpha: 0.3),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                     );
@@ -1056,11 +931,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         value.toInt().toString(),
-                        style: TextStyle(
-                          color: ColorConstant.gentleGray,
-                          fontSize: 10,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                       );
                     },
                   ),
@@ -1078,18 +949,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           DateFormat('MMM d').format(date),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 9,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       );
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               minY: 50,
@@ -1105,7 +972,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   isCurved: true,
-                  color: const Color(0xFFFF6347),
+                  color: const JHColors.danger,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1113,7 +980,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getDotPainter: (spot, percent, barData, index) {
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: const Color(0xFFFF6347),
+                        color: const JHColors.danger,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1131,7 +998,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   isCurved: true,
-                  color: const Color(0xFF4A90E2),
+                  color: const JHColors.info,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1139,7 +1006,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getDotPainter: (spot, percent, barData, index) {
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: const Color(0xFF4A90E2),
+                        color: const JHColors.info,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1156,12 +1023,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isSystolic = spot.barIndex == 0;
                       return LineTooltipItem(
                         '${isSystolic ? "Systolic" : "Diastolic"}\n${spot.y.toInt()} mmHg\n${DateFormat('MMM d').format(date)}',
-                        TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          fontFamily: 'Poppins',
-                        ),
+                        JHTextStyles.label.copyWith(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                       );
                     }).toList();
                   },
@@ -1174,32 +1036,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildChartLegendItem('Systolic', const Color(0xFFFF6347)),
+            _buildChartLegendItem('Systolic', const JHColors.danger),
             const SizedBox(width: 16),
-            _buildChartLegendItem('Diastolic', const Color(0xFF4A90E2)),
+            _buildChartLegendItem('Diastolic', const JHColors.info),
           ],
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
+            color: const JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, size: 16, color: const Color(0xFF4CAF50)),
+              const Icon(Icons.info_outline, size: 16, color: JHColors.success),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   Get.locale?.languageCode == 'fil'
                     ? 'Normal: 90-120 (Systolic), 60-80 (Diastolic) mmHg'
                     : 'Normal Range: 90-120 (Systolic), 60-80 (Diastolic) mmHg',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.label.copyWith(color: ColorConstant.bluedark, fontSize: 11),
                 ),
               ),
             ],
@@ -1223,29 +1081,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             Text(
               Get.locale?.languageCode == 'fil' ? 'Tibok ng Puso' : 'Heart Rate',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
-              ),
+              style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: latest >= 60 && latest <= 100
-                    ? const Color(0xFF4CAF50)
-                    : const Color(0xFFFF9800),
+                    ? const JHColors.success
+                    : const JHColors.warning,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${latest.toInt()} bpm',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1269,7 +1117,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   // Highlight normal range (60-100)
                   if (value == 60 || value == 100) {
                     return FlLine(
-                      color: const Color(0xFF4CAF50).withOpacity(0.3),
+                      color: const JHColors.success.withValues(alpha: 0.3),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                     );
@@ -1288,11 +1136,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         value.toInt().toString(),
-                        style: TextStyle(
-                          color: ColorConstant.gentleGray,
-                          fontSize: 10,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                       );
                     },
                   ),
@@ -1308,18 +1152,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           DateFormat('MMM d').format(date),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 9,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       );
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               minY: 40,
@@ -1331,7 +1171,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: const Color(0xFFE91E63),
+                  color: const JHColors.heartRed,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1340,7 +1180,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isNormal = trends[index].isNormal;
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                        color: isNormal ? const JHColors.success : const JHColors.warning,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1350,8 +1190,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFFE91E63).withOpacity(0.2),
-                        const Color(0xFFE91E63).withOpacity(0.05),
+                        const JHColors.heartRed.withValues(alpha: 0.2),
+                        const JHColors.heartRed.withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1369,7 +1209,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               child: _buildVitalStatCard(
                 label: Get.locale?.languageCode == 'fil' ? 'Average' : 'Average',
                 value: '${avg.toInt()} bpm',
-                color: const Color(0xFF4A90E2),
+                color: const JHColors.info,
               ),
             ),
             const SizedBox(width: 12),
@@ -1378,8 +1218,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 label: Get.locale?.languageCode == 'fil' ? 'Kasalukuyan' : 'Current',
                 value: '${latest.toInt()} bpm',
                 color: latest >= 60 && latest <= 100
-                  ? const Color(0xFF4CAF50)
-                  : const Color(0xFFFF9800),
+                  ? const JHColors.success
+                  : const JHColors.warning,
               ),
             ),
           ],
@@ -1401,29 +1241,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             Text(
               Get.locale?.languageCode == 'fil' ? 'Oxygen Saturation' : 'Oxygen Saturation',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
-              ),
+              style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: latest >= 95
-                    ? const Color(0xFF4CAF50)
-                    : const Color(0xFFFF6347),
+                    ? const JHColors.success
+                    : const JHColors.danger,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${latest.toInt()}%',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1439,7 +1269,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
           child: LineChart(
             LineChartData(
-              gridData: FlGridData(
+              gridData: const FlGridData(
                 show: true,
                 drawVerticalLine: false,
                 horizontalInterval: 2,
@@ -1452,11 +1282,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         '${value.toInt()}%',
-                        style: TextStyle(
-                          color: ColorConstant.gentleGray,
-                          fontSize: 10,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                       );
                     },
                   ),
@@ -1472,18 +1298,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           DateFormat('MMM d').format(date),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 9,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       );
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               minY: 85,
@@ -1495,7 +1317,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: const Color(0xFF00BCD4),
+                  color: const JHColors.info,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1504,7 +1326,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isNormal = trends[index].isNormal;
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFFF6347),
+                        color: isNormal ? const JHColors.success : const JHColors.danger,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1514,8 +1336,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF00BCD4).withOpacity(0.2),
-                        const Color(0xFF00BCD4).withOpacity(0.05),
+                        const JHColors.info.withValues(alpha: 0.2),
+                        const JHColors.info.withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1530,23 +1352,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
+            color: const JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, size: 16, color: const Color(0xFF4CAF50)),
+              const Icon(Icons.info_outline, size: 16, color: JHColors.success),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   Get.locale?.languageCode == 'fil'
                     ? 'Normal: 95-100%'
                     : 'Normal Range: 95-100%',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.label.copyWith(color: ColorConstant.bluedark, fontSize: 11),
                 ),
               ),
             ],
@@ -1569,29 +1387,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             Text(
               Get.locale?.languageCode == 'fil' ? 'Temperatura' : 'Temperature',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
-              ),
+              style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: latest >= 36.1 && latest <= 37.2
-                    ? const Color(0xFF4CAF50)
-                    : const Color(0xFFFF9800),
+                    ? const JHColors.success
+                    : const JHColors.warning,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${latest.toStringAsFixed(1)}°C',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1607,7 +1415,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
           child: LineChart(
             LineChartData(
-              gridData: FlGridData(
+              gridData: const FlGridData(
                 show: true,
                 drawVerticalLine: false,
                 horizontalInterval: 0.5,
@@ -1620,11 +1428,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         '${value.toStringAsFixed(1)}°',
-                        style: TextStyle(
-                          color: ColorConstant.gentleGray,
-                          fontSize: 10,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                       );
                     },
                   ),
@@ -1640,18 +1444,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           DateFormat('MMM d').format(date),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 9,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       );
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               minY: 35,
@@ -1663,7 +1463,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: const Color(0xFFFF9800),
+                  color: const JHColors.warning,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1672,7 +1472,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isNormal = trends[index].isNormal;
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                        color: isNormal ? const JHColors.success : const JHColors.warning,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1682,8 +1482,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFFFF9800).withOpacity(0.2),
-                        const Color(0xFFFF9800).withOpacity(0.05),
+                        const JHColors.warning.withValues(alpha: 0.2),
+                        const JHColors.warning.withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1698,23 +1498,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
+            color: const JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, size: 16, color: const Color(0xFF4CAF50)),
+              const Icon(Icons.info_outline, size: 16, color: JHColors.success),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   Get.locale?.languageCode == 'fil'
                     ? 'Normal: 36.1-37.2°C'
                     : 'Normal Range: 36.1-37.2°C',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.label.copyWith(color: ColorConstant.bluedark, fontSize: 11),
                 ),
               ),
             ],
@@ -1743,12 +1539,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   Get.locale?.languageCode == 'fil' ? 'Timbang' : 'Weight',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -1756,16 +1547,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     Icon(
                       change < 0 ? Icons.trending_down : Icons.trending_up,
                       size: 16,
-                      color: change < 0 ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+                      color: change < 0 ? const JHColors.success : const JHColors.warning,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${change.abs().toStringAsFixed(1)} kg ${change < 0 ? Get.locale?.languageCode == 'fil' ? 'nabawasan' : 'lost' : Get.locale?.languageCode == 'fil' ? 'nadagdag' : 'gained'}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ColorConstant.gentleGray,
-                        fontFamily: 'Poppins',
-                      ),
+                      style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
                     ),
                   ],
                 ),
@@ -1779,12 +1566,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ),
               child: Text(
                 '${latest.toStringAsFixed(1)} kg',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1800,7 +1582,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
           child: LineChart(
             LineChartData(
-              gridData: FlGridData(
+              gridData: const FlGridData(
                 show: true,
                 drawVerticalLine: false,
                 horizontalInterval: 2,
@@ -1813,11 +1595,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         '${value.toInt()} kg',
-                        style: TextStyle(
-                          color: ColorConstant.gentleGray,
-                          fontSize: 10,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                       );
                     },
                   ),
@@ -1833,18 +1611,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           DateFormat('MMM d').format(date),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 9,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       );
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               lineBarsData: [
@@ -1854,7 +1628,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: change < 0 ? const Color(0xFF4CAF50) : ColorConstant.trustBlue,
+                  color: change < 0 ? const JHColors.success : ColorConstant.trustBlue,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1862,7 +1636,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getDotPainter: (spot, percent, barData, index) {
                       return FlDotCirclePainter(
                         radius: 5,
-                        color: change < 0 ? const Color(0xFF4CAF50) : ColorConstant.trustBlue,
+                        color: change < 0 ? const JHColors.success : ColorConstant.trustBlue,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1872,8 +1646,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        (change < 0 ? const Color(0xFF4CAF50) : ColorConstant.trustBlue).withOpacity(0.2),
-                        (change < 0 ? const Color(0xFF4CAF50) : ColorConstant.trustBlue).withOpacity(0.05),
+                        (change < 0 ? const JHColors.success : ColorConstant.trustBlue).withValues(alpha: 0.2),
+                        (change < 0 ? const JHColors.success : ColorConstant.trustBlue).withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1888,7 +1662,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: change < 0 ? const Color(0xFFE8F5E9) : const Color(0xFFE3F2FD),
+            color: change < 0 ? const JHColors.successLight : const JHColors.infoLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -1896,7 +1670,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Icon(
                 change < 0 ? Icons.check_circle_outline : Icons.info_outline,
                 size: 16,
-                color: change < 0 ? const Color(0xFF4CAF50) : ColorConstant.trustBlue,
+                color: change < 0 ? const JHColors.success : ColorConstant.trustBlue,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1908,11 +1682,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       : (Get.locale?.languageCode == 'fil'
                           ? 'Subaybayan ang inyong timbang'
                           : 'Monitor your weight regularly'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.label.copyWith(color: ColorConstant.bluedark, fontSize: 11),
                 ),
               ),
             ],
@@ -1937,9 +1707,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     Color getBMIColor(double bmi) {
-      if (bmi >= 18.5 && bmi < 25) return const Color(0xFF4CAF50);
-      if (bmi < 18.5 || (bmi >= 25 && bmi < 30)) return const Color(0xFFFF9800);
-      return const Color(0xFFFF5722);
+      if (bmi >= 18.5 && bmi < 25) return const JHColors.success;
+      if (bmi < 18.5 || (bmi >= 25 && bmi < 30)) return const JHColors.warning;
+      return const JHColors.danger;
     }
 
     return Column(
@@ -1953,21 +1723,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   Get.locale?.languageCode == 'fil' ? 'BMI (Body Mass Index)' : 'BMI (Body Mass Index)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   getBMICategory(latest),
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: JHTextStyles.caption.copyWith(
                     color: getBMIColor(latest),
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
                   ),
                 ),
               ],
@@ -1980,12 +1743,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ),
               child: Text(
                 latest.toStringAsFixed(1),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -2009,7 +1767,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   // Highlight normal BMI range (18.5-24.9)
                   if (value == 18.5 || value == 24.9) {
                     return FlLine(
-                      color: const Color(0xFF4CAF50).withOpacity(0.3),
+                      color: const JHColors.success.withValues(alpha: 0.3),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                     );
@@ -2028,11 +1786,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         value.toInt().toString(),
-                        style: TextStyle(
-                          color: ColorConstant.gentleGray,
-                          fontSize: 10,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 10),
                       );
                     },
                   ),
@@ -2048,18 +1802,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           DateFormat('MMM d').format(date),
-                          style: TextStyle(
-                            color: ColorConstant.gentleGray,
-                            fontSize: 9,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                         ),
                       );
                     },
                   ),
                 ),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
               lineBarsData: [
@@ -2088,8 +1838,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        getBMIColor(latest).withOpacity(0.2),
-                        getBMIColor(latest).withOpacity(0.05),
+                        getBMIColor(latest).withValues(alpha: 0.2),
+                        getBMIColor(latest).withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -2104,7 +1854,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
+            color: const JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -2112,19 +1862,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: const Color(0xFF4CAF50)),
+                  const Icon(Icons.info_outline, size: 16, color: JHColors.success),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       Get.locale?.languageCode == 'fil'
                         ? 'Normal BMI: 18.5 - 24.9'
                         : 'Normal BMI Range: 18.5 - 24.9',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ColorConstant.bluedark,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
-                      ),
+                      style: JHTextStyles.label.copyWith(fontSize: 11, color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -2136,11 +1881,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   Get.locale?.languageCode == 'fil'
                     ? '<18.5: Kulang • 25-29.9: Sobra • ≥30: Obese'
                     : '<18.5: Underweight • 25-29.9: Overweight • ≥30: Obese',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.label.copyWith(fontSize: 9, color: ColorConstant.gentleGray),
                 ),
               ),
             ],
@@ -2165,11 +1906,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: ColorConstant.gentleGray,
-            fontFamily: 'Poppins',
-          ),
+          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
         ),
       ],
     );
@@ -2180,32 +1917,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required String value,
     required Color color,
   }) {
-    return Container(
+    return AccentCard(
+      accentColor: color,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
       child: Column(
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.bodyBase.copyWith(color: color),
           ),
         ],
       ),
@@ -2222,10 +1946,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isNormal ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+        color: isNormal ? const JHColors.successLight : const JHColors.dangerLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+          color: isNormal ? const JHColors.success : const JHColors.danger,
           width: 1,
         ),
       ),
@@ -2238,28 +1962,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Expanded(
                 child: Text(
                   name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+                  color: isNormal ? const JHColors.success : const JHColors.danger,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${latest.value.toStringAsFixed(name == 'Temperature' ? 1 : 0)} $unit',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -2267,11 +1981,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 8),
           Text(
             'Normal range: $minNormal-$maxNormal $unit',
-            style: TextStyle(
-              fontSize: 11,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
           ),
         ],
       ),
@@ -2326,7 +2036,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         border: hasData ? Border.all(color: Colors.white, width: 2) : null,
                         boxShadow: hasData ? [
                           BoxShadow(
-                            color: cellColor.withOpacity(0.5),
+                            color: cellColor.withValues(alpha: 0.5),
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),
@@ -2337,11 +2047,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           Center(
                             child: Text(
                               score.toString(),
-                              style: TextStyle(
+                              style: JHTextStyles.medicalDataSmall.copyWith(
                                 color: Colors.white,
                                 fontWeight: hasData ? FontWeight.w900 : FontWeight.bold,
                                 fontSize: hasData ? 13 : 10,
-                                fontFamily: 'Poppins',
                               ),
                             ),
                           ),
@@ -2359,12 +2068,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 child: Center(
                                   child: Text(
                                     '${assessmentsHere.length}',
-                                    style: TextStyle(
-                                      color: cellColor,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Poppins',
-                                    ),
+                                    style: JHTextStyles.label.copyWith(fontSize: 8, color: cellColor, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ),
@@ -2380,11 +2084,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 16),
           Text(
             'Tap on highlighted cells to view assessment details',
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.gentleGray,
               fontStyle: FontStyle.italic,
-              fontFamily: 'Poppins',
             ),
             textAlign: TextAlign.center,
           ),
@@ -2410,21 +2112,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               const SizedBox(height: 16),
               Text(
                 'Score: $score',
-                style: TextStyle(
-                  fontSize: 24,
+                style: JHTextStyles.h3.copyWith(
                   fontWeight: FontWeight.bold,
                   color: _getHeatmapColor(score),
-                  fontFamily: 'Poppins',
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '${records.length} assessment${records.length > 1 ? 's' : ''} at this level',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: ColorConstant.gentleGray,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.gentleGray),
               ),
               const SizedBox(height: 20),
               Container(
@@ -2439,7 +2135,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: record.getRiskColor().withOpacity(0.1),
+                          color: record.getRiskColor().withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: record.getRiskColor()),
                         ),
@@ -2448,12 +2144,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           children: [
                             Text(
                               DateFormat('MMM d, yyyy').format(record.date),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: ColorConstant.bluedark,
-                                fontFamily: 'Poppins',
-                              ),
+                              style: JHTextStyles.caption.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -2462,7 +2153,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 fontSize: 12,
                                 color: record.getRiskColor(),
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'Poppins',
+                                
                               ),
                             ),
                           ],
@@ -2473,18 +2164,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Get.back(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _getHeatmapColor(score),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text('Close'),
-                ),
+              StandardButton.primary(
+                text: 'Close',
+                onPressed: () => Get.back(),
               ),
             ],
           ),
@@ -2625,11 +2307,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 Get.locale?.languageCode == 'fil'
                     ? '${_filteredHistory.length} mga resulta'
                     : '${_filteredHistory.length} results',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: ColorConstant.gentleGray,
-                  fontFamily: 'Poppins',
-                ),
+                style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray),
               ),
               if (_filteredHistory.isNotEmpty)
                 TextButton.icon(
@@ -2643,11 +2321,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   icon: Icon(Icons.refresh, size: 16, color: ColorConstant.trustBlue),
                   label: Text(
                     Get.locale?.languageCode == 'fil' ? 'I-reset' : 'Reset',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ColorConstant.trustBlue,
-                      fontFamily: 'Poppins',
-                    ),
+                    style: JHTextStyles.label.copyWith(color: ColorConstant.trustBlue),
                   ),
                 ),
             ],
@@ -2694,7 +2368,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     : 'View all (${_filteredHistory.length})',
                 style: TextStyle(
                   color: ColorConstant.trustBlue,
-                  fontFamily: 'Poppins',
+                  
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2717,7 +2391,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           color: isSelected ? Colors.white : color,
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontFamily: 'Poppins',
+          
         ),
       ),
       selected: isSelected,
@@ -2726,7 +2400,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           _selectedRiskFilter = category;
         });
       },
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       selectedColor: color,
       checkmarkColor: Colors.white,
       side: BorderSide(color: color, width: 1),
@@ -2752,7 +2426,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   border: Border.all(color: Colors.white, width: 3),
                   boxShadow: [
                     BoxShadow(
-                      color: record.getRiskColor().withOpacity(0.3),
+                      color: record.getRiskColor().withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -2765,7 +2439,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Poppins',
+                      
                     ),
                   ),
                 ),
@@ -2785,20 +2459,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () => _showAssessmentDetailsDialog(record),
-              child: Container(
+              child: StandardCard(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: record.getRiskColor().withOpacity(0.3)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2814,12 +2476,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ),
                           child: Text(
                             record.riskCategory,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              fontFamily: 'Poppins',
-                            ),
+                            style: JHTextStyles.label.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                         ),
                         Icon(
@@ -2843,17 +2500,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             fontSize: 13,
                             color: ColorConstant.bluedark,
                             fontWeight: FontWeight.w600,
-                            fontFamily: 'Poppins',
+                            
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           DateFormat('h:mm a').format(record.date),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: ColorConstant.gentleGray,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
                         ),
                       ],
                     ),
@@ -2866,14 +2519,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         Expanded(
                           child: _buildScorePill(
                             'L: ${record.likelihoodScore}',
-                            const Color(0xFF4A90E2),
+                            const JHColors.info,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildScorePill(
                             'I: ${record.impactScore}',
-                            const Color(0xFFE91E63),
+                            const JHColors.heartRed,
                           ),
                         ),
                       ],
@@ -2890,18 +2543,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           _buildVitalChip(
                             Icons.favorite,
                             '${record.heartRate} bpm',
-                            const Color(0xFFE91E63),
+                            const JHColors.heartRed,
                           ),
                           _buildVitalChip(
                             Icons.monitor_heart,
                             '${record.systolicBP}/${record.diastolicBP}',
-                            const Color(0xFFFF6347),
+                            const JHColors.danger,
                           ),
                           if (record.oxygenSaturation != null)
                             _buildVitalChip(
                               Icons.air,
                               '${record.oxygenSaturation}%',
-                              const Color(0xFF00BCD4),
+                              const JHColors.info,
                             ),
                         ],
                       ),
@@ -2919,18 +2572,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: color,
-          fontFamily: 'Poppins',
-        ),
+        style: JHTextStyles.label.copyWith(color: color, fontWeight: FontWeight.bold),
         textAlign: TextAlign.center,
       ),
     );
@@ -2940,7 +2588,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -2954,7 +2602,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               fontSize: 10,
               color: color,
               fontWeight: FontWeight.w600,
-              fontFamily: 'Poppins',
+              
             ),
           ),
         ],
@@ -2977,23 +2625,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Get.locale?.languageCode == 'fil'
                 ? 'Walang nakitang resulta'
                 : 'No results found',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 8),
           Text(
             Get.locale?.languageCode == 'fil'
                 ? 'Subukang baguhin ang inyong filter o search query'
                 : 'Try changing your filter or search query',
-            style: TextStyle(
-              fontSize: 13,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray),
             textAlign: TextAlign.center,
           ),
         ],
@@ -3023,7 +2662,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           color: record.getRiskColor(),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.favorite,
                           color: Colors.white,
                           size: 24,
@@ -3038,20 +2677,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               Get.locale?.languageCode == 'fil'
                                   ? 'Detalye ng Pagsusuri'
                                   : 'Assessment Details',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: ColorConstant.bluedark,
-                                fontFamily: 'Poppins',
-                              ),
+                              style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
                             ),
                             Text(
                               DateFormat('MMM dd, yyyy h:mm a').format(record.date),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: ColorConstant.gentleGray,
-                                fontFamily: 'Poppins',
-                              ),
+                              style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray),
                             ),
                           ],
                         ),
@@ -3071,8 +2701,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          record.getRiskColor().withOpacity(0.1),
-                          record.getRiskColor().withOpacity(0.05),
+                          record.getRiskColor().withValues(alpha: 0.1),
+                          record.getRiskColor().withValues(alpha: 0.05),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(12),
@@ -3086,7 +2716,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: record.getRiskColor(),
-                            fontFamily: 'Poppins',
+                            
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -3094,11 +2724,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           Get.locale?.languageCode == 'fil'
                               ? 'Kabuuang Score: ${record.finalRiskScore}/25'
                               : 'Total Score: ${record.finalRiskScore}/25',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: ColorConstant.bluedark,
-                            fontFamily: 'Poppins',
-                          ),
+                          style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -3108,20 +2734,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               children: [
                                 Text(
                                   'Likelihood',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: ColorConstant.gentleGray,
-                                    fontFamily: 'Poppins',
-                                  ),
+                                  style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '${record.likelihoodScore}/5',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF4A90E2),
-                                    fontFamily: 'Poppins',
+                                    color: JHColors.info,
+                                    
                                   ),
                                 ),
                               ],
@@ -3135,20 +2757,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               children: [
                                 Text(
                                   'Impact',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: ColorConstant.gentleGray,
-                                    fontFamily: 'Poppins',
-                                  ),
+                                  style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray, fontSize: 11),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   '${record.impactScore}/5',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFFE91E63),
-                                    fontFamily: 'Poppins',
+                                    color: JHColors.heartRed,
+                                    
                                   ),
                                 ),
                               ],
@@ -3166,12 +2784,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     Get.locale?.languageCode == 'fil'
                         ? 'Vital Signs'
                         : 'Vital Signs',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: ColorConstant.bluedark,
-                      fontFamily: 'Poppins',
-                    ),
+                    style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -3197,27 +2810,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 20),
 
                   // Action Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Get.back(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: record.getRiskColor(),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        Get.locale?.languageCode == 'fil' ? 'Isara' : 'Close',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
+                  StandardButton.primary(
+                    text: Get.locale?.languageCode == 'fil' ? 'Isara' : 'Close',
+                    onPressed: () => Get.back(),
                   ),
                 ],
               ),
@@ -3236,20 +2831,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray),
           ),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -3280,12 +2866,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     title: '${percentage.toStringAsFixed(0)}%',
                     color: _getCategoryColor(entry.key),
                     radius: 50,
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontFamily: 'Poppins',
-                    ),
+                    titleStyle: JHTextStyles.bodySmall.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                   );
                 }).toList(),
               ),
@@ -3311,11 +2892,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(width: 6),
                   Text(
                     '${entry.key} (${entry.value})',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: ColorConstant.bluedark,
-                      fontFamily: 'Poppins',
-                    ),
+                    style: JHTextStyles.caption.copyWith(color: ColorConstant.bluedark),
                   ),
                 ],
               );
@@ -3341,12 +2918,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 16),
             Text(
               'Top Contributors',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
-              ),
+              style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
             ),
             const SizedBox(height: 12),
             ...contributors.map((factor) => _buildRiskFactorItem(
@@ -3357,19 +2929,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ],
           if (improved.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Text(
+            const Text(
               '✓ Improvements',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF4CAF50),
-                fontFamily: 'Poppins',
+                color: JHColors.success,
+                
               ),
             ),
             const SizedBox(height: 12),
             ...improved.map((factor) => _buildRiskFactorItem(
               factor,
-              const Color(0xFF4CAF50),
+              const JHColors.success,
               Icons.check_circle,
             )),
           ],
@@ -3383,9 +2955,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -3397,21 +2969,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   factor.factorName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   factor.description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                 ),
               ],
             ),
@@ -3424,12 +2987,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
             child: Text(
               '${factor.occurrences}x',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontFamily: 'Poppins',
-              ),
+              style: JHTextStyles.label.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -3451,32 +3009,27 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)],
+              gradient: const LinearGradient(
+                colors: [JHColors.successLight, JHColors.successLight],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
+              border: Border.all(color: const JHColors.success.withValues(alpha: 0.3)),
             ),
             child: Column(
               children: [
-                Icon(
+                const Icon(
                   Icons.science,
                   size: 48,
-                  color: const Color(0xFF4CAF50),
+                  color: JHColors.success,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   Get.locale?.languageCode == 'fil'
                     ? 'Tulungan ang Pananaliksik'
                     : 'Help Research',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
-                  ),
+                  style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -3484,64 +3037,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   Get.locale?.languageCode == 'fil'
                     ? 'Pahintulutan ang inyong anonymized data na makatulong sa pagpapabuti ng heart disease research ng PHC.'
                     : 'Allow your anonymized data to help improve PHC\'s heart disease research.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
-                    height: 1.4,
-                  ),
+                  style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.gentleGray, height: 1.4),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: StandardButton.outline(
+                        text: Get.locale?.languageCode == 'fil' ? 'Matuto Pa' : 'Learn More',
                         onPressed: () {
                           // TODO: Implement data contribution toggle
                           Get.snackbar(
                             Get.locale?.languageCode == 'fil' ? 'Paparating na Tampok' : 'Coming Soon',
-                            Get.locale?.languageCode == 'fil' 
+                            Get.locale?.languageCode == 'fil'
                               ? 'Ang tampok na ito ay paparating na!'
                               : 'This feature is coming soon!',
                             snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: const Color(0xFF4CAF50),
+                            backgroundColor: const JHColors.success,
                             colorText: Colors.white,
                           );
                         },
-                        icon: const Icon(Icons.info_outline),
-                        label: Text(Get.locale?.languageCode == 'fil' ? 'Matuto Pa' : 'Learn More'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF4CAF50),
-                          side: BorderSide(color: const Color(0xFF4CAF50), width: 1.5),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
+                      child: StandardButton.primary(
+                        text: Get.locale?.languageCode == 'fil' ? 'Pumayag' : 'Contribute',
                         onPressed: () {
                           // TODO: Implement data contribution toggle
                           Get.snackbar(
                             Get.locale?.languageCode == 'fil' ? 'Paparating na Tampok' : 'Coming Soon',
-                            Get.locale?.languageCode == 'fil' 
+                            Get.locale?.languageCode == 'fil'
                               ? 'Ang tampok na ito ay paparating na!'
                               : 'This feature is coming soon!',
                             snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: const Color(0xFF4CAF50),
+                            backgroundColor: const JHColors.success,
                             colorText: Colors.white,
                           );
                         },
-                        icon: const Icon(Icons.check_circle),
-                        label: Text(Get.locale?.languageCode == 'fil' ? 'Pumayag' : 'Contribute'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4CAF50),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
                       ),
                     ),
                   ],
@@ -3581,7 +3115,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     color: ColorConstant.trustBlue,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.description,
                     color: Colors.white,
                     size: 24,
@@ -3596,23 +3130,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         Get.locale?.languageCode == 'fil' 
                           ? 'Juan Heart Health Report'
                           : 'Juan Heart Health Report',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: ColorConstant.bluedark,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         Get.locale?.languageCode == 'fil' 
                           ? 'Kasama ang PHC branding at QR code'
                           : 'Includes PHC branding and QR code',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: ColorConstant.gentleGray,
-                          fontFamily: 'Poppins',
-                        ),
+                        style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
                       ),
                     ],
                   ),
@@ -3626,7 +3151,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
+                child: StandardButton.primary(
+                  text: Get.locale?.languageCode == 'fil' ? 'I-download PDF' : 'Download PDF',
                   onPressed: () async {
                     try {
                       final language = Get.locale?.languageCode ?? 'en';
@@ -3650,7 +3176,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     ? 'Ginagawa ang PDF report...'
                                     : 'Generating PDF report...',
                                   style: TextStyle(
-                                    fontFamily: 'Poppins',
+                                    
                                     fontSize: 14,
                                     color: ColorConstant.bluedark,
                                   ),
@@ -3679,7 +3205,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const Color(0xFF4CAF50),
+                        backgroundColor: const JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3699,19 +3225,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: Text(Get.locale?.languageCode == 'fil' ? 'I-download PDF' : 'Download PDF'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorConstant.trustBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton.icon(
+                child: StandardButton.outline(
+                  text: Get.locale?.languageCode == 'fil' ? 'Ibahagi' : 'Share',
                   onPressed: () async {
                     try {
                       final language = Get.locale?.languageCode ?? 'en';
@@ -3735,7 +3254,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     ? 'Inihahanda ang PDF para ibahagi...'
                                     : 'Preparing PDF to share...',
                                   style: TextStyle(
-                                    fontFamily: 'Poppins',
+                                    
                                     fontSize: 14,
                                     color: ColorConstant.bluedark,
                                   ),
@@ -3764,7 +3283,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const Color(0xFF4CAF50),
+                        backgroundColor: const JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3784,14 +3303,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.share),
-                  label: Text(Get.locale?.languageCode == 'fil' ? 'Ibahagi' : 'Share'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: ColorConstant.trustBlue,
-                    side: BorderSide(color: ColorConstant.trustBlue, width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                 ),
               ),
             ],
@@ -3807,7 +3318,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF555555),
+              color: JHColors.slate600,
             ),
           ),
           const SizedBox(height: 12),
@@ -3815,7 +3326,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             children: [
               // Download CSV Button
               Expanded(
-                child: ElevatedButton.icon(
+                child: StandardButton.primary(
+                  text: Get.locale?.languageCode == 'fil' ? 'I-download ang CSV' : 'Download CSV',
                   onPressed: () async {
                     try {
                       final language = Get.locale?.languageCode ?? 'en';
@@ -3862,7 +3374,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const Color(0xFF4CAF50),
+                        backgroundColor: const JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3882,20 +3394,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.table_chart),
-                  label: Text(Get.locale?.languageCode == 'fil' ? 'I-download ang CSV' : 'Download CSV'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF28A745),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                 ),
               ),
               const SizedBox(width: 12),
               // Share CSV Button
               Expanded(
-                child: OutlinedButton.icon(
+                child: StandardButton.outline(
+                  text: Get.locale?.languageCode == 'fil' ? 'Ibahagi ang CSV' : 'Share CSV',
                   onPressed: () async {
                     try {
                       final language = Get.locale?.languageCode ?? 'en';
@@ -3942,7 +3447,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const Color(0xFF4CAF50),
+                        backgroundColor: const JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3962,14 +3467,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.share),
-                  label: Text(Get.locale?.languageCode == 'fil' ? 'Ibahagi ang CSV' : 'Share CSV'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF28A745),
-                    side: const BorderSide(color: Color(0xFF28A745), width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                 ),
               ),
             ],
@@ -3985,15 +3482,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       case 'all':
         return ColorConstant.trustBlue;
       case 'low':
-        return const Color(0xFF32CD32);
+        return const JHColors.success;
       case 'mild':
-        return const Color(0xFFFFD700);
+        return const JHColors.warning;
       case 'moderate':
-        return const Color(0xFFFFA500);
+        return const JHColors.warning;
       case 'high':
-        return const Color(0xFFFF6347);
+        return const JHColors.danger;
       case 'critical':
-        return const Color(0xFFDC143C);
+        return const JHColors.dangerDark;
       default:
         return ColorConstant.gentleGray;
     }
@@ -4005,41 +3502,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required String subtitle,
     required Widget child,
   }) {
-    return Container(
-      width: double.infinity,
+    return StandardCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ColorConstant.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(
-              fontSize: 13,
-              color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
-            ),
+            style: JHTextStyles.caption.copyWith(color: ColorConstant.gentleGray),
           ),
           child,
         ],
@@ -4067,7 +3542,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
+                
               ),
               textAlign: TextAlign.center,
             ),
@@ -4077,25 +3552,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               style: TextStyle(
                 fontSize: 15,
                 color: ColorConstant.gentleGray,
-                fontFamily: 'Poppins',
+                
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
+            StandardButton.primary(
+              text: 'Start Assessment',
               onPressed: () {
                 // Navigate to assessment
                 Get.back(); // Go to dashboard where user can start assessment
               },
-              icon: const Icon(Icons.favorite),
-              label: const Text('Start Assessment'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ColorConstant.trustBlue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
             ),
           ],
         ),
@@ -4107,15 +3575,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Color _getHeatmapColor(int score) {
     if (score <= 5) {
-      return const Color(0xFF32CD32); // Green
+      return const JHColors.success; // Green
     } else if (score <= 10) {
-      return const Color(0xFFFFD700); // Yellow
+      return const JHColors.warning; // Yellow
     } else if (score <= 15) {
-      return const Color(0xFFFFA500); // Orange
+      return const JHColors.warning; // Orange
     } else if (score <= 20) {
-      return const Color(0xFFFF6347); // Red-Orange
+      return const JHColors.danger; // Red-Orange
     } else {
-      return const Color(0xFFDC143C); // Red
+      return const JHColors.dangerDark; // Red
     }
   }
 }

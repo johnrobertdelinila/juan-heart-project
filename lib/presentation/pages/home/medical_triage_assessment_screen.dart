@@ -12,8 +12,14 @@ import 'package:juan_heart/models/medical_triage_assessment_data.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
 import 'package:juan_heart/presentation/widgets/ai_consent_dialog.dart';
 import 'package:juan_heart/presentation/widgets/validation_comparison_view.dart';
-import 'package:juan_heart/themes/app_styles.dart';
+import 'package:juan_heart/presentation/widgets/slide_to_confirm_button.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:juan_heart/routes/app_routes.dart';
+import 'package:juan_heart/services/performance_service.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 
 class MedicalTriageAssessmentScreen extends StatefulWidget {
   const MedicalTriageAssessmentScreen({super.key});
@@ -25,9 +31,22 @@ class MedicalTriageAssessmentScreen extends StatefulWidget {
 class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentScreen> {
   final MedicalTriageAssessmentService _assessmentService = MedicalTriageAssessmentService();
   final PageController _pageController = PageController();
+
+  // Scroll controllers for each assessment page
+  late final ScrollController _methodSelectionScrollController;
+  late final ScrollController _basicInfoScrollController;
+  late final ScrollController _symptomsScrollController;
+  late final ScrollController _vitalSignsScrollController;
+  late final ScrollController _riskFactorsScrollController;
+  late final ScrollController _reviewScrollController;
+
   int _currentPage = 0;
   bool _isLoading = false;
   Map<String, dynamic>? _assessmentResult;
+
+  // Performance tracking traces
+  Trace? _assessmentTrace;
+  int _selectedSymptomsCount = 0;
   
   // Collapsible sections state for results screen
   bool _isHeatmapExpanded = true;
@@ -37,10 +56,11 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
   // AI assessment state
   AssessmentStrategy _selectedStrategy = RuleBasedAssessmentStrategy();
   bool _showAIOption = false;
+  bool _isCheckingAIAvailability = true; // Add loading state
   bool _isComparisonExpanded = true;
 
   // Form data
-  Map<String, dynamic> _userInput = {
+  final Map<String, dynamic> _userInput = {
     'age': '',
     'sex': '',
     'chestPainType': '',
@@ -73,9 +93,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
   };
 
   // Controllers for text fields
-  Map<String, TextEditingController> _controllers = {};
-  Map<String, FocusNode> _focusNodes = {};
-  Map<String, bool> _fieldTouched = {}; // Track if field has been touched
+  final Map<String, TextEditingController> _controllers = {};
+  final Map<String, FocusNode> _focusNodes = {};
+  final Map<String, bool> _fieldTouched = {}; // Track if field has been touched
 
   @override
   void initState() {
@@ -83,18 +103,56 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
     _initializeControllers();
     _assessmentService.initialize();
     _checkAIAvailability();
+    _startAssessmentTrace();
+  }
+
+  /// Start performance trace for overall assessment flow
+  Future<void> _startAssessmentTrace() async {
+    _assessmentTrace = await PerformanceService.instance.startAssessmentTrace();
   }
 
   /// Check if AI assessment option should be shown
   Future<void> _checkAIAvailability() async {
-    final isEnabled = await FeatureFlagService.isAIAssessmentEnabled();
     setState(() {
-      _showAIOption = isEnabled;
+      _isCheckingAIAvailability = true;
     });
+
+    debugPrint('🔍 [AI Check] Starting AI availability check...');
+
+    try {
+      // Get all feature flags for debugging
+      final flags = await FeatureFlagService.getFeatureFlags();
+      debugPrint('🚦 [AI Check] All feature flags: $flags');
+
+      // Check if AI assessment is enabled
+      final isEnabled = await FeatureFlagService.isAIAssessmentEnabled();
+      debugPrint('🤖 [AI Check] AI Enabled: $isEnabled');
+
+      setState(() {
+        _showAIOption = isEnabled;
+        _isCheckingAIAvailability = false;
+        debugPrint('✅ [AI Check] UI state updated: _showAIOption = $_showAIOption');
+      });
+    } catch (e) {
+      debugPrint('⚠️ [AI Check] Error checking AI availability: $e');
+      setState(() {
+        _showAIOption = false;
+        _isCheckingAIAvailability = false;
+      });
+    }
   }
 
   void _initializeControllers() {
-    final textFields = ['age', 'chestPainDuration', 'systolicBP', 'diastolicBP', 
+    // Initialize scroll controllers for each page
+    _methodSelectionScrollController = ScrollController();
+    _basicInfoScrollController = ScrollController();
+    _symptomsScrollController = ScrollController();
+    _vitalSignsScrollController = ScrollController();
+    _riskFactorsScrollController = ScrollController();
+    _reviewScrollController = ScrollController();
+
+    // Initialize text field controllers
+    final textFields = ['age', 'chestPainDuration', 'systolicBP', 'diastolicBP',
                        'heartRate', 'oxygenSaturation', 'temperature'];
     for (String field in textFields) {
       _controllers[field] = TextEditingController();
@@ -105,6 +163,15 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
 
   @override
   void dispose() {
+    // Dispose scroll controllers
+    _methodSelectionScrollController.dispose();
+    _basicInfoScrollController.dispose();
+    _symptomsScrollController.dispose();
+    _vitalSignsScrollController.dispose();
+    _riskFactorsScrollController.dispose();
+    _reviewScrollController.dispose();
+
+    // Dispose text field controllers and focus nodes
     for (var controller in _controllers.values) {
       controller.dispose();
     }
@@ -120,7 +187,35 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
     setState(() {
       _userInput[key] = value;
     });
+
+    // Track symptom selections for performance metrics
+    _updateSymptomCount();
   }
+
+  /// Update symptom count for performance tracking
+  void _updateSymptomCount() {
+    int count = 0;
+
+    // Count boolean symptoms
+    if (_userInput['syncope'] == true) count++;
+    if (_userInput['dizziness'] == true) count++;
+    if (_userInput['nausea'] == true) count++;
+    if (_userInput['sweating'] == true) count++;
+    if (_userInput['palpitations'] == true) count++;
+    if (_userInput['fainting'] == true) count++;
+    if (_userInput['neurologicalSymptoms'] == true) count++;
+    if (_userInput['legSwelling'] == true) count++;
+    if (_userInput['chestPainRadiation'] == true) count++;
+    if (_userInput['chestPainExertional'] == true) count++;
+
+    // Count categorical symptoms
+    if (_userInput['chestPainType'] != null && _userInput['chestPainType'].toString().isNotEmpty) count++;
+    if (_userInput['shortnessOfBreath'] != null && _userInput['shortnessOfBreath'].toString().isNotEmpty) count++;
+    if (_userInput['palpitationType'] != null && _userInput['palpitationType'].toString().isNotEmpty) count++;
+
+    _selectedSymptomsCount = count;
+  }
+
 
   Future<void> _runAssessment() async {
     setState(() {
@@ -139,11 +234,20 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       final assessmentContext = AssessmentContext(_selectedStrategy);
       final result = await assessmentContext.performAssessment(_userInput);
 
+      // Stop assessment trace with all metrics
+      await PerformanceService.instance.stopAssessmentTrace(
+        _assessmentTrace,
+        likelihoodScore: result['likelihoodScore'] ?? 1,
+        impactScore: result['impactScore'] ?? 1,
+        symptomCount: _selectedSymptomsCount,
+        usedAI: result['assessmentMethod'] == 'ai',
+      );
+
       // Check if AI fallback was used
       if (result['fallbackUsed'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('AI unavailable. Using validated rule-based algorithm.'),
+            content: const Text('AI unavailable. Using validated rule-based algorithm.'),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
@@ -212,6 +316,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
     // Validate required fields before proceeding
     if (!_validateCurrentPage()) {
       return; // Stop if validation fails
+    }
+
+    // Track page transitions for performance
+    if (_currentPage == 2) {
+      // Leaving symptoms page - track symptom selection
+      _updateSymptomCount();
     }
 
     if (_currentPage < 5) {
@@ -310,26 +420,19 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
     return Scaffold(
       backgroundColor: ColorConstant.whiteBackground,
       appBar: AppBar(
-        centerTitle: true,
-        elevation: 0,
-        title: Text(
-          "Heart Risk Assessment",
-          style: TextStyle(
-            color: ColorConstant.bluedark,
-            fontFamily: "Poppins",
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: ColorConstant.bluedark,
-          ),
-          onPressed: () {
-            Get.back();
-          },
-        ),
         backgroundColor: ColorConstant.whiteBackground,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
+          onPressed: () => Get.back(),
+        ),
+        title: Text(
+          "Assessment",
+          style: JHTextStyles.h4.copyWith(
+            color: ColorConstant.bluedark,
+          ),
+        ),
       ),
       body: _isLoading
           ? _buildLoadingScreen()
@@ -350,7 +453,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           const SizedBox(height: 20),
           Text(
             "Analyzing your assessment...",
-            style: AppStyle.txtPoppinsSemiBold18Dark,
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
           ),
         ],
       ),
@@ -368,14 +471,14 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               Expanded(
                 child: LinearProgressIndicator(
                   value: (_currentPage + 1) / 6,
-                  backgroundColor: ColorConstant.bluedark.withOpacity(0.2),
+                  backgroundColor: ColorConstant.bluedark.withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(ColorConstant.bluedark),
                 ),
               ),
               const SizedBox(width: 10),
               Text(
                 "${_currentPage + 1}/6",
-                style: AppStyle.txtPoppinsSemiBold16Dark,
+                style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -424,7 +527,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     color: ColorConstant.lightBlueBackground,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: ColorConstant.bluedark.withOpacity(0.2),
+                      color: ColorConstant.bluedark.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),
@@ -433,7 +536,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                       Container(
                         width: 6,
                         height: 6,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
                         ),
@@ -442,10 +545,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                       Flexible(
                         child: Text(
                           "Only age and sex are required. Vital signs are optional but help provide more accurate results.",
-                          style: TextStyle(
-                            color: ColorConstant.bluedark.withOpacity(0.8),
-                            fontSize: 12,
-                            fontFamily: "Poppins",
+                          style: JHTextStyles.caption.copyWith(
+                            color: ColorConstant.bluedark.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
@@ -456,25 +557,29 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Previous button
                   if (_currentPage > 0)
-                    ElevatedButton(
-                      onPressed: _previousPage,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300],
-                        foregroundColor: ColorConstant.bluedark,
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: StandardButton.grey(
+                          text: "Previous",
+                          onPressed: _previousPage,
+                        ),
                       ),
-                      child: Text("Previous"),
                     )
                   else
                     const SizedBox(width: 100),
 
-                  ElevatedButton(
-                    onPressed: _nextPage,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ColorConstant.bluedark,
-                      foregroundColor: Colors.white,
+                  // Next button
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: _currentPage > 0 ? 8 : 0),
+                      child: StandardButton.tertiary(
+                        text: _currentPage == 5 ? "Complete Assessment" : "Next",
+                        onPressed: _nextPage,
+                      ),
                     ),
-                    child: Text(_currentPage == 5 ? "Complete Assessment" : "Next"),
                   ),
                 ],
               ),
@@ -487,23 +592,33 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
 
   /// Build method selection page (AI vs Rule-Based)
   Widget _buildMethodSelectionPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside text fields
+        FocusScope.of(context).unfocus();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Scrollbar(
+        controller: _methodSelectionScrollController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _methodSelectionScrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Text(
             "Assessment Method",
-            style: AppStyle.txtPoppinsSemiBold24Dark,
+            style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 8),
           Text(
             "Choose how you want to assess your heart disease risk. Both methods are validated and safe.",
-            style: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.7),
-              fontSize: 14,
-              fontFamily: "Poppins",
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 24),
@@ -531,8 +646,36 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
 
           const SizedBox(height: 16),
 
-          // AI Card (conditional)
-          if (_showAIOption)
+          // AI Card (conditional) - Show loading indicator while checking
+          if (_isCheckingAIAvailability)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(ColorConstant.lightBlue),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    "Checking AI availability...",
+                    style: JHTextStyles.bodySmall.copyWith(
+                      color: ColorConstant.bluedark.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (_showAIOption)
             _buildMethodCard(
               title: "Gemini AI Prediction",
               badge: "EXPERIMENTAL",
@@ -547,19 +690,63 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               ],
               isSelected: _selectedStrategy is AIAssessmentStrategy,
               onTap: () async {
-                // Check consent before selecting AI
-                final hasConsent = await AIConsentService.hasConsent();
-                if (!hasConsent) {
-                  final consented = await showAIConsentDialog();
-                  if (!consented) return; // User declined
-                }
+                debugPrint('🎯 [AI Card] User tapped AI assessment card');
 
-                setState(() {
-                  _selectedStrategy = AIAssessmentStrategy();
-                });
+                try {
+                  // Check consent before selecting AI
+                  final hasConsent = await AIConsentService.hasConsent();
+                  debugPrint('🔍 [AI Card] Has consent: $hasConsent');
+
+                  if (!hasConsent) {
+                    debugPrint('📋 [AI Card] Showing consent dialog...');
+
+                    final consented = await showAIConsentDialog()
+                        .timeout(
+                          const Duration(seconds: 30),
+                          onTimeout: () {
+                            debugPrint('⚠️ [AI Card] Consent dialog timeout');
+                            return false;
+                          },
+                        );
+
+                    debugPrint('✅ [AI Card] Consent result: $consented');
+
+                    if (!consented) {
+                      debugPrint('🚫 [AI Card] User declined consent');
+                      return; // User declined
+                    }
+                  }
+
+                  // Ensure widget is still mounted before setState
+                  if (!mounted) {
+                    debugPrint('⚠️ [AI Card] Widget unmounted, skipping setState');
+                    return;
+                  }
+
+                  debugPrint('🔄 [AI Card] Updating strategy to AI...');
+                  setState(() {
+                    _selectedStrategy = AIAssessmentStrategy();
+                  });
+                  debugPrint('✅ [AI Card] AI strategy selected successfully');
+
+                } catch (e) {
+                  debugPrint('❌ [AI Card] Error: $e');
+
+                  if (!mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to enable AI assessment. Please try again.'),
+                      backgroundColor: Colors.red,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
               },
             ),
         ],
+          ),
+        ),
       ),
     );
   }
@@ -590,8 +777,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? badgeColor.withOpacity(0.2)
-                  : Colors.black.withOpacity(0.05),
+                  ? badgeColor.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.05),
               blurRadius: isSelected ? 12 : 8,
               offset: const Offset(0, 4),
             ),
@@ -607,7 +794,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: badgeColor.withOpacity(0.15),
+                    color: badgeColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(icon, color: badgeColor, size: 28),
@@ -621,10 +808,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: JHTextStyles.bodyBase.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'Poppins',
                           color: ColorConstant.bluedark,
                         ),
                       ),
@@ -632,13 +817,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: badgeColor.withOpacity(0.2),
+                          color: badgeColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           badge,
-                          style: TextStyle(
-                            fontSize: 10,
+                          style: JHTextStyles.caption.copyWith(
                             fontWeight: FontWeight.bold,
                             color: badgeColor,
                           ),
@@ -682,10 +866,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             // Description
             Text(
               description,
-              style: TextStyle(
-                fontSize: 13,
+              style: JHTextStyles.caption.copyWith(
                 height: 1.4,
-                color: ColorConstant.bluedark.withOpacity(0.8),
+                color: ColorConstant.bluedark.withValues(alpha: 0.8),
               ),
             ),
 
@@ -705,9 +888,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                   Expanded(
                     child: Text(
                       feature,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: ColorConstant.bluedark.withOpacity(0.7),
+                      style: JHTextStyles.caption.copyWith(
+                        color: ColorConstant.bluedark.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -721,22 +903,29 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
   }
 
   Widget _buildBasicInfoPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scrollbar(
+        controller: _basicInfoScrollController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _basicInfoScrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Basic Information",
-            style: AppStyle.txtPoppinsSemiBold24Dark,
+            style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 8),
           Text(
             "Please provide your basic information to help us personalize your assessment.",
-            style: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.7),
-              fontSize: 14,
-              fontFamily: "Poppins",
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 20),
@@ -744,12 +933,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           // Age
           Row(
             children: [
-              Text("Age", style: AppStyle.txtPoppinsSemiBold18Dark),
+              Text("Age", style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark)),
               const SizedBox(width: 4),
               Container(
                 width: 6,
                 height: 6,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
@@ -764,12 +953,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             decoration: InputDecoration(
               hintText: "Enter your age",
               hintStyle: TextStyle(
-                color: ColorConstant.bluedark.withOpacity(0.4),
+                color: ColorConstant.bluedark.withValues(alpha: 0.4),
                 fontSize: 14,
               ),
               helperText: "Range: 10-90 years",
               helperStyle: TextStyle(
-                color: ColorConstant.bluedark.withOpacity(0.6),
+                color: ColorConstant.bluedark.withValues(alpha: 0.6),
                 fontSize: 12,
               ),
               border: OutlineInputBorder(
@@ -778,7 +967,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(
-                  color: ColorConstant.bluedark.withOpacity(0.3),
+                  color: ColorConstant.bluedark.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -796,12 +985,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           // Sex
           Row(
             children: [
-              Text("Sex", style: AppStyle.txtPoppinsSemiBold18Dark),
+              Text("Sex", style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark)),
               const SizedBox(width: 4),
               Container(
                 width: 6,
                 height: 6,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
@@ -822,27 +1011,36 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             }).toList(),
           ),
         ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildSymptomsPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scrollbar(
+        controller: _symptomsScrollController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _symptomsScrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Symptoms",
-            style: AppStyle.txtPoppinsSemiBold24Dark,
+            style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 8),
           Text(
             "Please describe any symptoms you have experienced recently. This helps us assess your heart health more accurately.",
-            style: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.7),
-              fontSize: 14,
-              fontFamily: "Poppins",
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 20),
@@ -870,7 +1068,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           const SizedBox(height: 20),
           
           // Chest pain duration
-          Text("Chest Pain Duration (minutes)", style: AppStyle.txtPoppinsSemiBold18Dark),
+          Text("Chest Pain Duration (minutes)", style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark)),
           const SizedBox(height: 8),
           TextField(
             controller: _controllers['chestPainDuration'],
@@ -907,14 +1105,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           const SizedBox(height: 20),
           
           // Other symptoms checkboxes
-          Text("Other Symptoms", style: AppStyle.txtPoppinsSemiBold18Dark),
+          Text("Other Symptoms", style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark)),
           const SizedBox(height: 4),
           Text(
             "Check all symptoms that you have felt recently.",
-            style: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.7),
-              fontSize: 12,
-              fontFamily: "Poppins",
+            style: JHTextStyles.caption.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 8),
@@ -923,27 +1119,36 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           _buildCheckboxListTile('nausea', 'Nausea'),
           _buildCheckboxListTile('sweating', 'Sweating'),
         ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildVitalSignsPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scrollbar(
+        controller: _vitalSignsScrollController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _vitalSignsScrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Vital Signs",
-            style: AppStyle.txtPoppinsSemiBold24Dark,
+            style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 8),
           Text(
             "Please enter your current vital signs if you know them. If you don't have these measurements, you can skip them.",
-            style: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.7),
-              fontSize: 14,
-              fontFamily: "Poppins",
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 20),
@@ -1026,32 +1231,41 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             isRequired: false,
           ),
         ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildRiskFactorsPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scrollbar(
+        controller: _riskFactorsScrollController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _riskFactorsScrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Risk Factors",
-            style: AppStyle.txtPoppinsSemiBold24Dark,
+            style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 8),
           Text(
             "Please check any medical conditions you have and describe your lifestyle habits. This information helps us provide more accurate recommendations.",
-            style: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.7),
-              fontSize: 14,
-              fontFamily: "Poppins",
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 20),
           
-          Text("Medical History", style: AppStyle.txtPoppinsSemiBold18Dark),
+          Text("Medical History", style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark)),
           const SizedBox(height: 8),
           _buildCheckboxListTile('hypertension', 'Hypertension'),
           _buildCheckboxListTile('diabetes', 'Diabetes'),
@@ -1060,20 +1274,31 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           _buildCheckboxListTile('ckd', 'Chronic Kidney Disease'),
           
           const SizedBox(height: 20),
-          Text("Lifestyle Factors", style: AppStyle.txtPoppinsSemiBold18Dark),
+          Text("Lifestyle Factors", style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark)),
           const SizedBox(height: 8),
           _buildCheckboxListTile('smoking', 'Smoking'),
           _buildCheckboxListTile('obesity', 'Obesity'),
           _buildCheckboxListTile('familyHistory', 'Family History of Heart Disease'),
         ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildReviewPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Scrollbar(
+        controller: _reviewScrollController,
+        thumbVisibility: false,
+        thickness: 4,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _reviewScrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Header with icon
@@ -1086,7 +1311,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           
           Text(
             "Review Your Information",
-            style: AppStyle.txtPoppinsSemiBold24Dark,
+            style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark),
             textAlign: TextAlign.center,
           ),
           
@@ -1094,10 +1319,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           
           Text(
             "Please review your entries before submitting",
-            style: TextStyle(
+            style: JHTextStyles.bodySmall.copyWith(
               color: ColorConstant.gentleGray,
-              fontSize: 14,
-              fontFamily: "Poppins",
             ),
             textAlign: TextAlign.center,
           ),
@@ -1121,7 +1344,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           _buildReviewCard(
             title: "Symptoms",
             icon: Icons.favorite_outline,
-            iconColor: const Color(0xFFE63946),
+            iconColor: const JHColors.danger,
             items: [
               if (_userInput['chestPainType'].toString().isNotEmpty && _userInput['chestPainType'] != '')
                 _buildReviewItem("Chest Pain", "${_userInput['chestPainType']}"),
@@ -1163,7 +1386,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           _buildReviewCard(
             title: "Risk Factors",
             icon: Icons.warning_amber_outlined,
-            iconColor: const Color(0xFFFFB703),
+            iconColor: const JHColors.warning,
             items: [
               if (_userInput['hypertension'] == true)
                 _buildReviewItem("Medical", "Hypertension"),
@@ -1181,37 +1404,23 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 _buildReviewItem("Family History", "Heart Disease"),
             ],
           ),
-          
+
           const SizedBox(height: 24),
         ],
+          ),
+        ),
       ),
     );
   }
-  
+
   Widget _buildReviewCard({
     required String title,
     required IconData icon,
     required Color iconColor,
     required List<Widget> items,
   }) {
-    return Container(
-      width: double.infinity,
+    return StandardCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ColorConstant.cardBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1220,7 +1429,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
+                  color: iconColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: iconColor, size: 24),
@@ -1228,11 +1437,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               const SizedBox(width: 12),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                style: JHTextStyles.h4.copyWith(
                   color: ColorConstant.bluedark,
-                  fontFamily: "Poppins",
                 ),
               ),
             ],
@@ -1244,11 +1450,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             const SizedBox(height: 12),
             Text(
               "No information provided",
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: ColorConstant.gentleGray,
                 fontStyle: FontStyle.italic,
-                fontFamily: "Poppins",
               ),
             ),
           ],
@@ -1268,10 +1472,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               flex: 2,
               child: Text(
                 label,
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodyBase.copyWith(
                   color: ColorConstant.gentleGray,
-                  fontFamily: "Poppins",
                 ),
               ),
             ),
@@ -1279,11 +1481,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               flex: 3,
               child: Text(
                 value,
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodyBase.copyWith(
                   fontWeight: FontWeight.w600,
                   color: ColorConstant.bluedark,
-                  fontFamily: "Poppins",
                 ),
               ),
             ),
@@ -1292,11 +1492,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             Expanded(
               child: Text(
                 "• $value",
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodyBase.copyWith(
                   fontWeight: FontWeight.w600,
                   color: ColorConstant.bluedark,
-                  fontFamily: "Poppins",
                 ),
               ),
             ),
@@ -1337,7 +1535,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 Flexible(
                   child: Text(
                     label, 
-                    style: AppStyle.txtPoppinsSemiBold18Dark,
+                    style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
                     overflow: TextOverflow.visible,
                   ),
                 ),
@@ -1346,7 +1544,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
@@ -1363,10 +1561,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     color: ColorConstant.bluedark,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  textStyle: TextStyle(
+                  textStyle: JHTextStyles.caption.copyWith(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontFamily: "Poppins",
                   ),
                   padding: const EdgeInsets.all(12),
                   child: GestureDetector(
@@ -1388,10 +1584,10 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: ColorConstant.bluedark.withOpacity(0.1),
+                        color: ColorConstant.bluedark.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: ColorConstant.bluedark.withOpacity(0.3),
+                          color: ColorConstant.bluedark.withValues(alpha: 0.3),
                           width: 1,
                         ),
                       ),
@@ -1406,10 +1602,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 const SizedBox(width: 8),
                 Text(
                   "Tap for more information",
-                  style: TextStyle(
-                    color: ColorConstant.bluedark.withOpacity(0.6),
-                    fontSize: 11,
-                    fontFamily: "Poppins",
+                  style: JHTextStyles.label.copyWith(
+                    color: ColorConstant.bluedark.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -1437,14 +1631,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           },
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.4),
-              fontSize: 14,
+            hintStyle: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.4),
             ),
             helperText: helperText,
-            helperStyle: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.6),
-              fontSize: 12,
+            helperStyle: JHTextStyles.caption.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.6),
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -1456,7 +1648,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
-                color: ColorConstant.bluedark.withOpacity(0.3),
+                color: ColorConstant.bluedark.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -1469,15 +1661,14 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
+              borderSide: const BorderSide(
                 color: Colors.red,
                 width: 1.5,
               ),
             ),
             suffixText: unit,
-            suffixStyle: TextStyle(
-              color: ColorConstant.bluedark.withOpacity(0.6),
-              fontSize: 12,
+            suffixStyle: JHTextStyles.caption.copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -1486,9 +1677,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               _getValidationError(controllerKey)!,
-              style: TextStyle(
+              style: JHTextStyles.label.copyWith(
                 color: Colors.red,
-                fontSize: 11,
               ),
             ),
           ),
@@ -1514,20 +1704,20 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
 
   Color _getValidationColor(String key) {
     final value = _controllers[key]?.text ?? '';
-    if (value.isEmpty) return ColorConstant.bluedark.withOpacity(0.3);
+    if (value.isEmpty) return ColorConstant.bluedark.withValues(alpha: 0.3);
     
     // Only show validation colors if the field has been completed (not just touched)
     if (!(_fieldTouched[key] ?? false)) {
-      return ColorConstant.bluedark.withOpacity(0.3);
+      return ColorConstant.bluedark.withValues(alpha: 0.3);
     }
     
     // Check if the field is currently focused - don't show validation while typing
     if (_focusNodes[key]?.hasFocus == true) {
-      return ColorConstant.bluedark.withOpacity(0.3);
+      return ColorConstant.bluedark.withValues(alpha: 0.3);
     }
     
     final intValue = int.tryParse(value);
-    if (intValue == null) return ColorConstant.bluedark.withOpacity(0.3);
+    if (intValue == null) return ColorConstant.bluedark.withValues(alpha: 0.3);
     
     // Only show validation colors for vital signs when they have complete values
     switch (key) {
@@ -1542,7 +1732,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       case 'temperature':
         return (intValue >= 36 && intValue <= 38) ? Colors.green : Colors.orange;
       default:
-        return ColorConstant.bluedark.withOpacity(0.3);
+        return ColorConstant.bluedark.withValues(alpha: 0.3);
     }
   }
 
@@ -1612,7 +1802,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 Flexible(
                   child: Text(
                     label, 
-                    style: AppStyle.txtPoppinsSemiBold18Dark,
+                    style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
                     overflow: TextOverflow.visible,
                   ),
                 ),
@@ -1621,7 +1811,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
@@ -1638,10 +1828,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     color: ColorConstant.bluedark,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  textStyle: TextStyle(
+                  textStyle: JHTextStyles.caption.copyWith(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontFamily: "Poppins",
                   ),
                   padding: const EdgeInsets.all(12),
                   child: GestureDetector(
@@ -1662,10 +1850,10 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: ColorConstant.bluedark.withOpacity(0.1),
+                        color: ColorConstant.bluedark.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: ColorConstant.bluedark.withOpacity(0.3),
+                          color: ColorConstant.bluedark.withValues(alpha: 0.3),
                           width: 1,
                         ),
                       ),
@@ -1680,10 +1868,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 const SizedBox(width: 8),
                 Text(
                   "Tap for more information",
-                  style: TextStyle(
-                    color: ColorConstant.bluedark.withOpacity(0.6),
-                    fontSize: 11,
-                    fontFamily: "Poppins",
+                  style: JHTextStyles.caption.copyWith(
+                    color: ColorConstant.bluedark.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -1709,7 +1895,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: _getRiskColor(result['riskCategory']).withOpacity(0.1),
+              color: _getRiskColor(result['riskCategory']).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: _getRiskColor(result['riskCategory']),
@@ -1726,7 +1912,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 const SizedBox(height: 16),
                 Text(
                   result['riskCategory'],
-                  style: AppStyle.txtPoppinsSemiBold24Dark.copyWith(
+                  style: JHTextStyles.h3.copyWith(color: ColorConstant.bluedark).copyWith(
                     color: _getRiskColor(result['riskCategory']),
                     fontSize: 28,
                   ),
@@ -1735,11 +1921,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 const SizedBox(height: 12),
                 Text(
                   result['recommendedAction'],
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: JHTextStyles.bodyLarge.copyWith(
                     fontWeight: FontWeight.w600,
                     color: ColorConstant.bluedark,
-                    fontFamily: "Poppins",
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -1760,8 +1944,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           
           const SizedBox(height: 16),
 
-          // Comparison View - Show when AI and rule-based scores differ
-          if (result['hasDiscrepancy'] == true)
+          // Comparison View - Always show when using AI for transparency
+          if (result['assessmentMethod'] == 'ai' && result['validated'] == true)
             _buildCollapsibleSection(
               title: "Assessment Comparison",
               icon: Icons.compare_arrows,
@@ -1773,7 +1957,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               ),
             ),
 
-          if (result['hasDiscrepancy'] == true) const SizedBox(height: 16),
+          if (result['assessmentMethod'] == 'ai' && result['validated'] == true) const SizedBox(height: 16),
 
           // Assessment Details - Collapsible (collapsed by default)
           _buildCollapsibleSection(
@@ -1823,20 +2007,16 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                     children: [
                       Text(
                         "Medical Disclaimer",
-                        style: TextStyle(
-                          fontSize: 14,
+                        style: JHTextStyles.bodySmall.copyWith(
                           fontWeight: FontWeight.bold,
                           color: ColorConstant.bluedark,
-                          fontFamily: "Poppins",
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         "This assessment provides guidance only. Always consult healthcare professionals for proper diagnosis and treatment.",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: ColorConstant.bluedark.withOpacity(0.8),
-                          fontFamily: "Poppins",
+                        style: JHTextStyles.caption.copyWith(
+                          color: ColorConstant.bluedark.withValues(alpha: 0.8),
                           height: 1.4,
                         ),
                       ),
@@ -1856,7 +2036,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: StandardButton.outline(
+                      text: "Share",
                       onPressed: () async {
                         await PDFReportService.generateAndShareReport(
                           _assessmentResult!,
@@ -1864,26 +2045,12 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                           context,
                         );
                       },
-                      icon: const Icon(Icons.share, size: 20),
-                      label: const Text("Share"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: ColorConstant.trustBlue,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        side: BorderSide(
-                          color: ColorConstant.trustBlue,
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: StandardButton.outline(
+                      text: "Download",
                       onPressed: () async {
                         await PDFReportService.generateAndDownloadReport(
                           _assessmentResult!,
@@ -1891,21 +2058,6 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                           context,
                         );
                       },
-                      icon: const Icon(Icons.download, size: 20),
-                      label: const Text("Download"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: ColorConstant.trustBlue,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        side: BorderSide(
-                          color: ColorConstant.trustBlue,
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
                   ),
                 ],
@@ -1913,60 +2065,24 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               
               const SizedBox(height: 12),
               
-              // Done Button (replaced New Assessment)
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: () => Get.back(),
-                  icon: const Icon(Icons.check_circle, size: 22),
-                  label: const Text(
-                    "Done",
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ColorConstant.trustBlue,
-                    foregroundColor: Colors.white,
-                    elevation: 2,
-                    shadowColor: ColorConstant.trustBlue.withOpacity(0.3),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
+              // Done Button - Navigate to Home Screen
+              StandardButton.primary(
+                text: "Done",
+                onPressed: () => Get.offAllNamed(AppRoutes.home),
               ),
               
               const SizedBox(height: 20),
               
-              // Next Steps Button - Moved to bottom with emphasis
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: _navigateToNextSteps,
-                  icon: const Icon(Icons.arrow_forward, size: 24),
-                  label: const Text(
-                    "Continue to Next Steps",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _getRiskColor(result['riskCategory']),
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: _getRiskColor(result['riskCategory']).withOpacity(0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
+              // Next Steps Button - iOS-style slide to continue
+              SlideToConfirmButton(
+                onConfirm: _navigateToNextSteps,
+                text: 'Slide to Continue',
+                backgroundColor: _getRiskColor(result['riskCategory']),
+                thumbColor: Colors.white,
+                textColor: Colors.white,
+                icon: Icons.arrow_forward,
+                height: 56.0,
+                completionThreshold: 0.8,
               ),
               
               const SizedBox(height: 8),
@@ -1995,7 +2111,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2013,7 +2129,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: ColorConstant.trustBlue.withOpacity(0.12),
+                      color: ColorConstant.trustBlue.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(icon, color: ColorConstant.trustBlue, size: 24),
@@ -2022,11 +2138,9 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                   Expanded(
                     child: Text(
                       title,
-                      style: TextStyle(
+                      style: JHTextStyles.h4.copyWith(
                         fontSize: 17,
-                        fontWeight: FontWeight.bold,
                         color: ColorConstant.bluedark,
-                        fontFamily: "Poppins",
                       ),
                     ),
                   ),
@@ -2103,30 +2217,22 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
               const SizedBox(height: 16),
               Text(
                 "Score: $score",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                style: JHTextStyles.h3.copyWith(
                   color: _getHeatmapColor(score),
-                  fontFamily: "Poppins",
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 riskLevel,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                style: JHTextStyles.h4.copyWith(
                   color: ColorConstant.bluedark,
-                  fontFamily: "Poppins",
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 "Position: Row ${y + 1}, Column ${x + 1}",
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   color: ColorConstant.gentleGray,
-                  fontFamily: "Poppins",
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -2184,8 +2290,10 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 int score = (x + 1) * (y + 1);
                 
                 Color cellColor = _getHeatmapColor(score);
-                bool isCurrentPosition = x == result['heatmapPosition']['x'] && 
-                                       y == result['heatmapPosition']['y'];
+                // Safely access heatmapPosition with null check
+                bool isCurrentPosition = result['heatmapPosition'] != null &&
+                                       x == (result['heatmapPosition']['x'] ?? -1) &&
+                                       y == (result['heatmapPosition']['y'] ?? -1);
                 
                 return GestureDetector(
                   onTap: () {
@@ -2201,7 +2309,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                       borderRadius: BorderRadius.circular(6),
                       boxShadow: isCurrentPosition ? [
                         BoxShadow(
-                          color: cellColor.withOpacity(0.6),
+                          color: cellColor.withValues(alpha: 0.6),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -2212,7 +2320,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (isCurrentPosition) 
-                            Icon(
+                            const Icon(
                               Icons.my_location,
                               color: Colors.white,
                               size: 16,
@@ -2239,7 +2347,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
         
         Text(
           "Your Position: ${result['finalRiskScore']} (${result['likelihoodLevel']} × ${result['impactLevel']})",
-          style: AppStyle.txtPoppinsSemiBold14Dark,
+          style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
       ],
@@ -2254,7 +2362,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 2),
@@ -2266,7 +2374,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
         children: [
           Text(
             "Assessment Details",
-            style: AppStyle.txtPoppinsSemiBold18Dark,
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
           ),
           const SizedBox(height: 15),
           
@@ -2278,13 +2386,13 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           const SizedBox(height: 15),
           Text(
             "Explanation",
-            style: AppStyle.txtPoppinsSemiBold16Dark,
+            style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
             result['explanation'],
-            style: AppStyle.txtPoppinsSemiBold14Dark.copyWith(
-              color: ColorConstant.bluedark.withOpacity(0.7),
+            style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600).copyWith(
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -2317,16 +2425,14 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                   margin: const EdgeInsets.only(top: 4),
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: ColorConstant.trustBlue.withOpacity(0.12),
+                    color: ColorConstant.trustBlue.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Text(
                     "${index + 1}",
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: JHTextStyles.caption.copyWith(
                       fontWeight: FontWeight.bold,
                       color: ColorConstant.trustBlue,
-                      fontFamily: "Poppins",
                     ),
                   ),
                 ),
@@ -2334,10 +2440,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
                 Expanded(
                   child: Text(
                     recommendation,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: ColorConstant.bluedark.withOpacity(0.85),
-                      fontFamily: "Poppins",
+                    style: JHTextStyles.bodySmall.copyWith(
+                      color: ColorConstant.bluedark.withValues(alpha: 0.85),
                       height: 1.5,
                     ),
                   ),
@@ -2357,8 +2461,8 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppStyle.txtPoppinsSemiBold14Dark),
-          Text(value, style: AppStyle.txtPoppinsSemiBold14Dark),
+          Text(label, style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600)),
+          Text(value, style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600)),
         ],
       ),
     );

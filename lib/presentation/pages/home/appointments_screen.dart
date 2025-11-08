@@ -4,10 +4,15 @@ import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/appointment_model.dart';
 import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/services/appointment_service.dart';
-import 'package:juan_heart/presentation/pages/home/book_appointment_screen.dart';
+import 'package:juan_heart/services/sync_queue_service.dart';
 import 'package:juan_heart/presentation/pages/home/reschedule_appointment_dialog.dart';
 import 'package:juan_heart/presentation/pages/teleconsult/pre_consultation_screen.dart';
 import 'package:juan_heart/presentation/pages/teleconsult/waiting_room_screen.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/presentation/pages/home/home.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:intl/intl.dart';
 
 class AppointmentsScreen extends StatefulWidget {
@@ -62,62 +67,21 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
+  /// Check if there are any failed syncs
+  bool get _hasFailedSyncs {
+    return _appointments.any((apt) => apt.syncStatus == 'failed');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ColorConstant.whiteBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildFilterTabs(),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState()
-                  : _appointments.isEmpty
-                      ? _buildEmptyState()
-                      : _buildAppointmentsList(),
-            ),
-          ],
-        ),
-      ),
-      // FAB removed - booking now integrated into post-assessment flow
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                Get.locale?.languageCode == 'fil'
-                    ? 'Mga Appointment'
-                    : 'Appointments',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C3E50),
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                Get.locale?.languageCode == 'fil'
-                    ? 'Pamahalaan ang inyong mga appointment'
-                    : 'Manage your appointments',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: ColorConstant.gentleGray,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-            ],
-          ),
+      appBar: AppBar(
+        backgroundColor: ColorConstant.whiteBackground,
+        automaticallyImplyLeading: false,
+        elevation: 0,
+        centerTitle: true,
+        actions: [
           IconButton(
             onPressed: () {
               // TODO: Show appointment history or settings
@@ -128,8 +92,118 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ),
           ),
         ],
+        title: Text(
+          Get.locale?.languageCode == 'fil'
+              ? 'Mga Appointment'
+              : 'Appointments',
+          style: JHTextStyles.h4.copyWith(
+            color: ColorConstant.bluedark,
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          _buildFilterTabs(),
+          Expanded(
+            child: _isLoading
+                ? _buildLoadingState()
+                : _appointments.isEmpty
+                    ? _buildEmptyState()
+                    : _buildAppointmentsList(),
+          ),
+        ],
+      ),
+      floatingActionButton: _hasFailedSyncs ? _buildRetryFAB() : null,
+    );
+  }
+
+  /// Build Floating Action Button for retrying failed syncs
+  Widget _buildRetryFAB() {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    return SafeArea(
+      child: FloatingActionButton.extended(
+        onPressed: _retryFailedSyncs,
+        backgroundColor: Colors.orange[600],
+        icon: const Icon(Icons.refresh, color: Colors.white),
+        label: Text(
+          isFilipino ? 'I-retry ang mga Failed Syncs' : 'Retry Failed Syncs',
+          style: JHTextStyles.bodySmall.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
+  }
+
+  /// Retry all failed sync operations
+  Future<void> _retryFailedSyncs() async {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    // Show loading dialog
+    Get.dialog(
+      WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                isFilipino
+                    ? 'Muling sinusubukan ang failed syncs...'
+                    : 'Retrying failed syncs...',
+                style: JHTextStyles.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      // Retry failed operations
+      await SyncQueueService().retryFailedOperations();
+
+      // Wait a bit for sync to process
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Refresh appointments list
+      await _loadAppointments();
+
+      // Close loading dialog
+      Get.back();
+
+      // Show success message
+      Get.snackbar(
+        isFilipino ? 'Tagumpay!' : 'Success!',
+        isFilipino
+            ? 'Mga failed syncs ay muling sinubukan. Pakicheck ang sync status.'
+            : 'Failed syncs have been retried. Check sync status for updates.',
+        backgroundColor: Colors.green[600],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      // Close loading dialog
+      Get.back();
+
+      // Show error message
+      Get.snackbar(
+        isFilipino ? 'Error' : 'Error',
+        isFilipino
+            ? 'Hindi ma-retry ang failed syncs: $e'
+            : 'Failed to retry syncs: $e',
+        backgroundColor: Colors.red[600],
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    }
   }
 
   Widget _buildFilterTabs() {
@@ -137,11 +211,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
       child: Row(
         children: [
-          _buildFilterChip('all', Get.locale?.languageCode == 'fil' ? 'Lahat' : 'All'),
+          _buildFilterChip(
+              'all', Get.locale?.languageCode == 'fil' ? 'Lahat' : 'All'),
           const SizedBox(width: 8),
-          _buildFilterChip('upcoming', Get.locale?.languageCode == 'fil' ? 'Paparating' : 'Upcoming'),
+          _buildFilterChip('upcoming',
+              Get.locale?.languageCode == 'fil' ? 'Paparating' : 'Upcoming'),
           const SizedBox(width: 8),
-          _buildFilterChip('completed', Get.locale?.languageCode == 'fil' ? 'Tapos Na' : 'Completed'),
+          _buildFilterChip('completed',
+              Get.locale?.languageCode == 'fil' ? 'Tapos Na' : 'Completed'),
         ],
       ),
     );
@@ -156,23 +233,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? ColorConstant.trustBlue
-              : ColorConstant.softWhite,
+          color: isSelected ? ColorConstant.trustBlue : ColorConstant.softWhite,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? ColorConstant.trustBlue
-                : ColorConstant.cardBorder,
+            color:
+                isSelected ? ColorConstant.trustBlue : ColorConstant.cardBorder,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 14,
+          style: JHTextStyles.bodySmall.copyWith(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected ? Colors.white : ColorConstant.gentleGray,
-            fontFamily: 'Poppins',
           ),
         ),
       ),
@@ -204,11 +276,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               Get.locale?.languageCode == 'fil'
                   ? 'Wala Pa Kayong Appointment'
                   : 'No Appointments Yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              style: JHTextStyles.h4.copyWith(
                 color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
               ),
               textAlign: TextAlign.center,
             ),
@@ -217,41 +286,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               Get.locale?.languageCode == 'fil'
                   ? 'Magsimula sa isang Heart Risk Assessment upang malaman kung kailangan mo ng appointment'
                   : 'Start with a Heart Risk Assessment to see if you need an appointment',
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: ColorConstant.gentleGray,
-                fontFamily: 'Poppins',
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
+            StandardButton.primary(
+              text: Get.locale?.languageCode == 'fil'
+                  ? 'Magsimula ng Assessment'
+                  : 'Start Assessment',
               onPressed: () {
-                // Navigate to assessment screen
-                Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
+                showCustomDialog(
+                  context,
+                  targetRoute: AppRoutes.medicalTriageAssessmentScreen,
+                );
               },
-              icon: const Icon(Icons.monitor_heart),
-              label: Text(
-                Get.locale?.languageCode == 'fil'
-                    ? 'Magsimula ng Assessment'
-                    : 'Start Assessment',
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ColorConstant.lightRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
@@ -279,20 +330,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Widget _buildAppointmentCard(Appointment appointment) {
-    return Container(
+    return StandardCard(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ColorConstant.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -300,10 +340,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: appointment.getStatusColor().withOpacity(0.1),
+              color: appointment.getStatusColor().withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(15),
               ),
             ),
             child: Row(
@@ -316,28 +356,24 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 const SizedBox(width: 8),
                 Text(
                   appointment.getStatusText(Get.locale?.languageCode ?? 'en'),
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: JHTextStyles.caption.copyWith(
                     fontWeight: FontWeight.bold,
                     color: appointment.getStatusColor(),
-                    fontFamily: 'Poppins',
                   ),
                 ),
                 const Spacer(),
                 if (appointment.isToday)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: ColorConstant.lightRed,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       Get.locale?.languageCode == 'fil' ? 'NGAYON' : 'TODAY',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                      style: JHTextStyles.label.copyWith(
                         color: Colors.white,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                   ),
@@ -367,11 +403,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     Expanded(
                       child: Text(
                         appointment.facilityName,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        style: JHTextStyles.h5.copyWith(
                           color: ColorConstant.bluedark,
-                          fontFamily: 'Poppins',
                         ),
                       ),
                     ),
@@ -388,10 +421,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       appointment.doctorName,
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: JHTextStyles.bodySmall.copyWith(
                         color: ColorConstant.gentleGray,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                   ],
@@ -406,12 +437,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      DateFormat('MMMM dd, yyyy').format(appointment.appointmentDate),
-                      style: TextStyle(
-                        fontSize: 14,
+                      DateFormat('MMMM dd, yyyy')
+                          .format(appointment.appointmentDate),
+                      style: JHTextStyles.bodySmall.copyWith(
                         fontWeight: FontWeight.w600,
                         color: ColorConstant.bluedark,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -423,11 +453,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       appointment.appointmentTime,
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: JHTextStyles.bodySmall.copyWith(
                         fontWeight: FontWeight.w600,
                         color: ColorConstant.bluedark,
-                        fontFamily: 'Poppins',
                       ),
                     ),
                   ],
@@ -451,10 +479,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                         Expanded(
                           child: Text(
                             appointment.notes!,
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: JHTextStyles.caption.copyWith(
                               color: ColorConstant.gentleGray,
-                              fontFamily: 'Poppins',
                             ),
                           ),
                         ),
@@ -471,7 +497,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: appointment.getQuestionnaireStatusColor().withOpacity(0.1),
+                color: appointment
+                    .getQuestionnaireStatusColor()
+                    .withValues(alpha: 0.1),
                 border: Border(
                   top: BorderSide(color: ColorConstant.cardBorder),
                 ),
@@ -490,11 +518,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     Get.locale?.languageCode == 'fil'
                         ? 'Pre-consultation: ${appointment.getQuestionnaireStatusText('fil')}'
                         : 'Pre-consultation: ${appointment.getQuestionnaireStatusText('en')}',
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: JHTextStyles.caption.copyWith(
                       fontWeight: FontWeight.w600,
                       color: appointment.getQuestionnaireStatusColor(),
-                      fontFamily: 'Poppins',
                     ),
                   ),
                 ],
@@ -503,7 +529,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           ],
 
           // Pre-consultation and waiting room buttons
-          if (appointment.needsQuestionnaire || appointment.canJoinWaitingRoom())
+          if (appointment.needsQuestionnaire ||
+              appointment.canJoinWaitingRoom())
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -517,48 +544,43 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 children: [
                   // Fill Questionnaire button
                   if (appointment.needsQuestionnaire)
-                    ElevatedButton.icon(
+                    StandardButton.secondary(
+                      text: Get.locale?.languageCode == 'fil'
+                          ? 'Sagutan ang Form'
+                          : 'Fill Questionnaire',
                       onPressed: () => _fillQuestionnaire(appointment),
-                      icon: const Icon(Icons.assignment, size: 18),
-                      label: Text(
-                        Get.locale?.languageCode == 'fil'
-                            ? 'Sagutan ang Form'
-                            : 'Fill Questionnaire',
-                        style: const TextStyle(fontFamily: 'Poppins'),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.trustBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
                     ),
 
                   // Join Waiting Room button
                   if (appointment.canJoinWaitingRoom()) ...[
-                    if (appointment.needsQuestionnaire) const SizedBox(height: 8),
-                    ElevatedButton.icon(
+                    if (appointment.needsQuestionnaire)
+                      const SizedBox(height: 8),
+                    StandardButton.primary(
+                      text: Get.locale?.languageCode == 'fil'
+                          ? 'Sumali sa Waiting Room'
+                          : 'Join Waiting Room',
                       onPressed: () => _joinWaitingRoom(appointment),
-                      icon: const Icon(Icons.video_call, size: 18),
-                      label: Text(
-                        Get.locale?.languageCode == 'fil'
-                            ? 'Sumali sa Waiting Room'
-                            : 'Join Waiting Room',
-                        style: const TextStyle(fontFamily: 'Poppins'),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.lightRed,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
                     ),
                   ],
                 ],
+              ),
+            ),
+
+          // Mark as Completed button (for today's or past appointments)
+          if (_canMarkAsCompleted(appointment))
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: ColorConstant.softWhite,
+                border: Border(
+                  top: BorderSide(color: ColorConstant.cardBorder),
+                ),
+              ),
+              child: StandardButton.primary(
+                text: Get.locale?.languageCode == 'fil'
+                    ? 'Markahan bilang Tapos'
+                    : 'Mark as Completed',
+                onPressed: () => _markAsCompleted(appointment),
               ),
             ),
 
@@ -570,8 +592,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               decoration: BoxDecoration(
                 color: ColorConstant.softWhite,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(15),
+                  bottomRight: Radius.circular(15),
                 ),
                 border: Border(
                   top: BorderSide(color: ColorConstant.cardBorder),
@@ -580,42 +602,24 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: StandardButton.outline(
+                      text: Get.locale?.languageCode == 'fil'
+                          ? 'Kanselahin'
+                          : 'Cancel',
                       onPressed: () {
                         _showCancelDialog(appointment);
                       },
-                      icon: const Icon(Icons.cancel, size: 18),
-                      label: Text(
-                        Get.locale?.languageCode == 'fil' ? 'Kanselahin' : 'Cancel',
-                        style: const TextStyle(fontFamily: 'Poppins'),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: ColorConstant.lightRed,
-                        side: BorderSide(color: ColorConstant.lightRed),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: StandardButton.secondary(
+                      text: Get.locale?.languageCode == 'fil'
+                          ? 'I-reschedule'
+                          : 'Reschedule',
                       onPressed: () {
                         _showRescheduleDialog(appointment);
                       },
-                      icon: const Icon(Icons.edit_calendar, size: 18),
-                      label: Text(
-                        Get.locale?.languageCode == 'fil' ? 'I-reschedule' : 'Reschedule',
-                        style: const TextStyle(fontFamily: 'Poppins'),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ColorConstant.trustBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
                     ),
                   ),
                 ],
@@ -626,7 +630,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
-
   void _showCancelDialog(Appointment appointment) {
     Get.dialog(
       AlertDialog(
@@ -634,29 +637,31 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           Get.locale?.languageCode == 'fil'
               ? 'Kanselahin ang Appointment?'
               : 'Cancel Appointment?',
-          style: const TextStyle(fontFamily: 'Poppins'),
+          style: JHTextStyles.h5,
         ),
         content: Text(
           Get.locale?.languageCode == 'fil'
               ? 'Sigurado ka bang gusto mong kanselahin ang appointment na ito?'
               : 'Are you sure you want to cancel this appointment?',
-          style: const TextStyle(fontFamily: 'Poppins'),
+          style: JHTextStyles.bodyBase,
         ),
         actions: [
-          TextButton(
+          StandardButton.outline(
+            text: Get.locale?.languageCode == 'fil' ? 'Hindi' : 'No',
             onPressed: () => Get.back(),
-            child: Text(
-              Get.locale?.languageCode == 'fil' ? 'Hindi' : 'No',
-              style: const TextStyle(fontFamily: 'Poppins'),
-            ),
+            width: 80,
           ),
-          ElevatedButton(
+          const SizedBox(width: 8),
+          StandardButton.primary(
+            text: Get.locale?.languageCode == 'fil'
+                ? 'Oo, Kanselahin'
+                : 'Yes, Cancel',
             onPressed: () async {
               Get.back();
 
               // Show loading
               Get.dialog(
-                Center(child: CircularProgressIndicator()),
+                const Center(child: CircularProgressIndicator()),
                 barrierDismissible: false,
               );
 
@@ -697,13 +702,104 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ColorConstant.lightRed,
-            ),
-            child: Text(
-              Get.locale?.languageCode == 'fil' ? 'Oo, Kanselahin' : 'Yes, Cancel',
-              style: const TextStyle(fontFamily: 'Poppins'),
-            ),
+            width: 150,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Helper method to determine if appointment can be marked as completed
+  bool _canMarkAsCompleted(Appointment appointment) {
+    // Must not already be completed, cancelled, or no-show
+    if (appointment.status == AppointmentStatus.completed ||
+        appointment.status == AppointmentStatus.cancelled ||
+        appointment.status == AppointmentStatus.noShow) {
+      return false;
+    }
+
+    // Appointment date must have passed or be today
+    final now = DateTime.now();
+    final appointmentDateTime = appointment.appointmentDate;
+
+    // Check if appointment date is today or in the past
+    return appointmentDateTime.year <= now.year &&
+        appointmentDateTime.month <= now.month &&
+        appointmentDateTime.day <= now.day;
+  }
+
+  void _markAsCompleted(Appointment appointment) {
+    Get.dialog(
+      AlertDialog(
+        title: Text(
+          Get.locale?.languageCode == 'fil'
+              ? 'Markahan bilang Tapos?'
+              : 'Mark as Completed?',
+          style: JHTextStyles.h5,
+        ),
+        content: Text(
+          Get.locale?.languageCode == 'fil'
+              ? 'Sigurado ka bang tapos na ang appointment na ito? Makakatanggap ka ng follow-up reminder pagkatapos ng 7 araw.'
+              : 'Are you sure this appointment is completed? You will receive a follow-up reminder in 7 days.',
+          style: JHTextStyles.bodyBase,
+        ),
+        actions: [
+          StandardButton.outline(
+            text: Get.locale?.languageCode == 'fil' ? 'Hindi' : 'No',
+            onPressed: () => Get.back(),
+            width: 80,
+          ),
+          const SizedBox(width: 8),
+          StandardButton.primary(
+            text: Get.locale?.languageCode == 'fil'
+                ? 'Oo, Tapos na'
+                : 'Yes, Completed',
+            onPressed: () async {
+              Get.back();
+
+              // Show loading
+              Get.dialog(
+                const Center(child: CircularProgressIndicator()),
+                barrierDismissible: false,
+              );
+
+              // Mark as completed
+              final success =
+                  await AppointmentService.markAsCompleted(appointment.id);
+
+              Get.back(); // Close loading
+
+              if (success) {
+                // Reload appointments
+                _loadAppointments();
+
+                Get.snackbar(
+                  Get.locale?.languageCode == 'fil' ? 'Tapos Na' : 'Completed',
+                  Get.locale?.languageCode == 'fil'
+                      ? 'Ang appointment ay natapos na. Makakatanggap ka ng follow-up reminder sa loob ng 7 araw.'
+                      : 'Appointment marked as completed. You will receive a follow-up reminder in 7 days.',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: ColorConstant.reassuringGreen,
+                  colorText: Colors.white,
+                  margin: const EdgeInsets.all(16),
+                  borderRadius: 12,
+                  duration: const Duration(seconds: 4),
+                );
+              } else {
+                Get.snackbar(
+                  Get.locale?.languageCode == 'fil' ? 'Error' : 'Error',
+                  Get.locale?.languageCode == 'fil'
+                      ? 'Hindi ma-update ang appointment'
+                      : 'Could not update appointment',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                  margin: const EdgeInsets.all(16),
+                  borderRadius: 12,
+                );
+              }
+            },
+            width: 150,
           ),
         ],
       ),
@@ -780,19 +876,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     switch (appointment.syncStatus) {
       case 'synced':
         icon = Icons.cloud_done;
-        backgroundColor = const Color(0xFF4CAF50); // Green
+        backgroundColor = const JHColors.success; // Green
         textColor = Colors.white;
         label = isFilipino ? 'Naka-sync' : 'Synced';
         break;
       case 'pending':
         icon = Icons.cloud_upload;
-        backgroundColor = const Color(0xFFFFA500); // Orange
+        backgroundColor = const JHColors.warning; // Orange
         textColor = Colors.white;
         label = isFilipino ? 'Nag-sync' : 'Syncing';
         break;
       case 'failed':
         icon = Icons.cloud_off;
-        backgroundColor = const Color(0xFFF44336); // Red
+        backgroundColor = const JHColors.danger; // Red
         textColor = Colors.white;
         label = isFilipino ? 'Hindi nag-sync' : 'Failed';
         break;
@@ -804,7 +900,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         label = isFilipino ? 'Naghihintay' : 'Waiting';
     }
 
-    return Container(
+    final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -821,12 +917,95 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.label.copyWith(
               color: textColor,
-              fontFamily: 'Poppins',
             ),
+          ),
+        ],
+      ),
+    );
+
+    // Make failed status tappable to show error details
+    if (appointment.syncStatus == 'failed' &&
+        appointment.syncErrorMessage != null) {
+      return GestureDetector(
+        onTap: () => _showSyncErrorDialog(appointment),
+        child: badge,
+      );
+    }
+
+    return badge;
+  }
+
+  /// Show dialog with sync error details
+  void _showSyncErrorDialog(Appointment appointment) {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    Get.dialog(
+      AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[700]),
+            const SizedBox(width: 12),
+            Text(
+              isFilipino ? 'Detalye ng Error' : 'Sync Error Details',
+              style: JHTextStyles.h5.copyWith(
+                color: Colors.red[700],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isFilipino
+                  ? 'Ang appointment na ito ay nabigo sa pag-sync sa backend:'
+                  : 'This appointment failed to sync to the backend:',
+              style: JHTextStyles.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: Colors.red[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      appointment.syncErrorMessage ?? 'Unknown error',
+                      style: JHTextStyles.caption.copyWith(
+                        color: Colors.red[900],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isFilipino
+                  ? 'Maaari mong subukang i-sync muli ang appointment na ito gamit ang "Retry Failed Syncs" button sa ibaba.'
+                  : 'You can retry syncing this appointment using the "Retry Failed Syncs" button below.',
+              style: JHTextStyles.caption.copyWith(
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          StandardButton.secondary(
+            text: isFilipino ? 'Isara' : 'Close',
+            onPressed: () => Get.back(),
+            width: 100,
           ),
         ],
       ),
@@ -843,34 +1022,30 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             Get.locale?.languageCode == 'fil'
                 ? 'Punan Muna ang Form'
                 : 'Complete Questionnaire First',
-            style: const TextStyle(fontFamily: 'Poppins'),
+            style: JHTextStyles.h5,
           ),
           content: Text(
             Get.locale?.languageCode == 'fil'
                 ? 'Kailangan mong sagutan muna ang pre-consultation form bago sumali sa waiting room.'
                 : 'Please complete the pre-consultation questionnaire before joining the waiting room.',
-            style: const TextStyle(fontFamily: 'Poppins'),
+            style: JHTextStyles.bodyBase,
           ),
           actions: [
-            TextButton(
+            StandardButton.grey(
+              text: Get.locale?.languageCode == 'fil' ? 'Kanselahin' : 'Cancel',
               onPressed: () => Get.back(),
-              child: Text(
-                Get.locale?.languageCode == 'fil' ? 'Kanselahin' : 'Cancel',
-                style: const TextStyle(fontFamily: 'Poppins'),
-              ),
+              width: 120,
             ),
-            ElevatedButton(
+            const SizedBox(width: 8),
+            StandardButton.secondary(
+              text: Get.locale?.languageCode == 'fil'
+                  ? 'Sagutan Ngayon'
+                  : 'Fill Now',
               onPressed: () {
                 Get.back();
                 _fillQuestionnaire(appointment);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ColorConstant.trustBlue,
-              ),
-              child: Text(
-                Get.locale?.languageCode == 'fil' ? 'Sagutan Ngayon' : 'Fill Now',
-                style: const TextStyle(fontFamily: 'Poppins'),
-              ),
+              width: 150,
             ),
           ],
         ),

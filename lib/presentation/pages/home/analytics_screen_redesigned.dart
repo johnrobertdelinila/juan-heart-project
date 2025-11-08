@@ -4,7 +4,9 @@ import 'package:get/get.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
 import 'package:juan_heart/services/analytics_service.dart';
-import 'package:juan_heart/themes/app_styles.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:intl/intl.dart';
 
 /// Heart Insights Center - Redesigned Analytics Screen
@@ -68,30 +70,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Scaffold(
       backgroundColor: ColorConstant.softWhite,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Heart Insights Center",
-              style: TextStyle(
-                fontFamily: "Poppins",
-                color: ColorConstant.bluedark,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
-            Text(
-              "Your Cardiovascular Health Journey",
-              style: TextStyle(
-                fontFamily: "Poppins",
-                color: ColorConstant.gentleGray,
-                fontWeight: FontWeight.w400,
-                fontSize: 12,
-              ),
-            ),
-          ],
+        centerTitle: true,
+        title: Text(
+          "Heart Insights Center",
+          style: JHTextStyles.h4.copyWith(
+            color: ColorConstant.bluedark,
+          ),
         ),
         actions: [
           IconButton(
@@ -110,7 +96,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Loading your health insights...',
-                    style: AppStyle.txtPoppinsSemiBold16Dark,
+                    style: JHTextStyles.bodyBase.copyWith(
+                      color: ColorConstant.bluedark,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -173,11 +162,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       children: [
         Text(
           'Quick Overview',
-          style: TextStyle(
+          style: JHTextStyles.h3.copyWith(
             fontSize: 22,
-            fontWeight: FontWeight.bold,
             color: ColorConstant.bluedark,
-            fontFamily: 'Poppins',
           ),
         ),
         const SizedBox(height: 16),
@@ -188,7 +175,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 title: 'Total Assessments',
                 value: '${_trendStats!.totalAssessments}',
                 icon: Icons.assignment,
-                color: ColorConstant.trust Blue,
+                color: ColorConstant.trustBlue,
               ),
             ),
             const SizedBox(width: 12),
@@ -234,20 +221,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
+    return AccentCard(
+      accentColor: color,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ColorConstant.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -256,7 +232,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -266,20 +242,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h3.copyWith(
               color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
             ),
           ),
           const SizedBox(height: 4),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
             ),
           ),
         ],
@@ -296,11 +267,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       children: [
         Text(
           'Health Insights',
-          style: TextStyle(
+          style: JHTextStyles.h3.copyWith(
             fontSize: 22,
-            fontWeight: FontWeight.bold,
             color: ColorConstant.bluedark,
-            fontFamily: 'Poppins',
           ),
         ),
         const SizedBox(height: 16),
@@ -316,13 +285,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildInsightCard(HealthInsight insight) {
-    return Container(
+    return AccentCard(
+      accentColor: insight.color,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: insight.color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: insight.color.withOpacity(0.3), width: 1.5),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -334,20 +299,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   insight.title,
-                  style: TextStyle(
+                  style: JHTextStyles.button.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   insight.message,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: ColorConstant.bluedark.withOpacity(0.8),
-                    fontFamily: 'Poppins',
+                  style: JHTextStyles.bodySmall.copyWith(
+                    color: ColorConstant.bluedark.withValues(alpha: 0.8),
                     height: 1.4,
                   ),
                 ),
@@ -392,10 +354,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       getTitlesWidget: (value, meta) {
                         return Text(
                           value.toInt().toString(),
-                          style: TextStyle(
+                          style: JHTextStyles.caption.copyWith(
                             color: ColorConstant.gentleGray,
-                            fontSize: 11,
-                            fontFamily: 'Poppins',
                           ),
                         );
                       },
@@ -412,18 +372,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             DateFormat('MMM d').format(date),
-                            style: TextStyle(
+                            style: JHTextStyles.caption.copyWith(
                               color: ColorConstant.gentleGray,
-                              fontSize: 10,
-                              fontFamily: 'Poppins',
                             ),
                           ),
                         );
                       },
                     ),
                   ),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
                 minX: 0,
@@ -459,8 +417,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          ColorConstant.trustBlue.withOpacity(0.3),
-                          ColorConstant.trustBlue.withOpacity(0.05),
+                          ColorConstant.trustBlue.withValues(alpha: 0.3),
+                          ColorConstant.trustBlue.withValues(alpha: 0.05),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -475,11 +433,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         final record = _history[spot.x.toInt()];
                         return LineTooltipItem(
                           '${record.riskCategory}\nScore: ${record.finalRiskScore}\n${DateFormat('MMM d').format(record.date)}',
-                          TextStyle(
+                          const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
-                            fontFamily: 'Poppins',
+                            
                           ),
                         );
                       }).toList();
@@ -501,11 +459,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       spacing: 12,
       runSpacing: 8,
       children: [
-        _buildLegendItem('Low', const Color(0xFF32CD32)),
-        _buildLegendItem('Mild', const Color(0xFFFFD700)),
-        _buildLegendItem('Moderate', const Color(0xFFFFA500)),
-        _buildLegendItem('High', const Color(0xFFFF6347)),
-        _buildLegendItem('Critical', const Color(0xFFDC143C)),
+        _buildLegendItem('Low', const JHColors.success),
+        _buildLegendItem('Mild', const JHColors.warning),
+        _buildLegendItem('Moderate', const JHColors.warning),
+        _buildLegendItem('High', const JHColors.danger),
+        _buildLegendItem('Critical', const JHColors.dangerDark),
       ],
     );
   }
@@ -525,10 +483,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
+          style: JHTextStyles.caption.copyWith(
             color: ColorConstant.gentleGray,
-            fontFamily: 'Poppins',
           ),
         ),
       ],
@@ -568,10 +524,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isNormal ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+        color: isNormal ? const JHColors.successLight : const JHColors.dangerLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+          color: isNormal ? const JHColors.success : const JHColors.danger,
           width: 1,
         ),
       ),
@@ -584,27 +540,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Expanded(
                 child: Text(
                   name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  style: JHTextStyles.button.copyWith(
                     color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isNormal ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+                  color: isNormal ? const JHColors.success : const JHColors.danger,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${latest.value.toStringAsFixed(name == 'Temperature' ? 1 : 0)} $unit',
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: JHTextStyles.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    fontFamily: 'Poppins',
                   ),
                 ),
               ),
@@ -613,10 +564,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 8),
           Text(
             'Normal range: $minNormal-$maxNormal $unit',
-            style: TextStyle(
-              fontSize: 11,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
             ),
           ),
         ],
@@ -672,7 +621,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         border: hasData ? Border.all(color: Colors.white, width: 2) : null,
                         boxShadow: hasData ? [
                           BoxShadow(
-                            color: cellColor.withOpacity(0.5),
+                            color: cellColor.withValues(alpha: 0.5),
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),
@@ -687,7 +636,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 color: Colors.white,
                                 fontWeight: hasData ? FontWeight.w900 : FontWeight.bold,
                                 fontSize: hasData ? 13 : 10,
-                                fontFamily: 'Poppins',
+                                
                               ),
                             ),
                           ),
@@ -705,11 +654,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 child: Center(
                                   child: Text(
                                     '${assessmentsHere.length}',
-                                    style: TextStyle(
+                                    style: JHTextStyles.caption.copyWith(
                                       color: cellColor,
                                       fontSize: 8,
                                       fontWeight: FontWeight.bold,
-                                      fontFamily: 'Poppins',
                                     ),
                                   ),
                                 ),
@@ -726,11 +674,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 16),
           Text(
             'Tap on highlighted cells to view assessment details',
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.gentleGray,
               fontStyle: FontStyle.italic,
-              fontFamily: 'Poppins',
             ),
             textAlign: TextAlign.center,
           ),
@@ -756,20 +702,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               const SizedBox(height: 16),
               Text(
                 'Score: $score',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                style: JHTextStyles.h3.copyWith(
                   color: _getHeatmapColor(score),
-                  fontFamily: 'Poppins',
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '${records.length} assessment${records.length > 1 ? 's' : ''} at this level',
-                style: TextStyle(
+                style: JHTextStyles.h4.copyWith(
                   fontSize: 16,
                   color: ColorConstant.gentleGray,
-                  fontFamily: 'Poppins',
                 ),
               ),
               const SizedBox(height: 20),
@@ -785,7 +727,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: record.getRiskColor().withOpacity(0.1),
+                          color: record.getRiskColor().withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: record.getRiskColor()),
                         ),
@@ -794,21 +736,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           children: [
                             Text(
                               DateFormat('MMM d, yyyy').format(record.date),
-                              style: TextStyle(
-                                fontSize: 13,
+                              style: JHTextStyles.bodySmall.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: ColorConstant.bluedark,
-                                fontFamily: 'Poppins',
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               record.riskCategory,
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: JHTextStyles.caption.copyWith(
                                 color: record.getRiskColor(),
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'Poppins',
                               ),
                             ),
                           ],
@@ -863,11 +801,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     title: '${percentage.toStringAsFixed(0)}%',
                     color: _getCategoryColor(entry.key),
                     radius: 50,
-                    titleStyle: const TextStyle(
-                      fontSize: 14,
+                    titleStyle: JHTextStyles.button.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      fontFamily: 'Poppins',
                     ),
                   );
                 }).toList(),
@@ -894,10 +830,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(width: 6),
                   Text(
                     '${entry.key} (${entry.value})',
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: JHTextStyles.bodySmall.copyWith(
                       color: ColorConstant.bluedark,
-                      fontFamily: 'Poppins',
                     ),
                   ),
                 ],
@@ -924,11 +858,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 16),
             Text(
               'Top Contributors',
-              style: TextStyle(
+              style: JHTextStyles.h4.copyWith(
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
                 color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
               ),
             ),
             const SizedBox(height: 12),
@@ -940,19 +872,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ],
           if (improved.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Text(
+            const Text(
               '✓ Improvements',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF4CAF50),
-                fontFamily: 'Poppins',
+                color: JHColors.success,
+                
               ),
             ),
             const SizedBox(height: 12),
             ...improved.map((factor) => _buildRiskFactorItem(
               factor,
-              const Color(0xFF4CAF50),
+              const JHColors.success,
               Icons.check_circle,
             )),
           ],
@@ -966,9 +898,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -980,11 +912,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               children: [
                 Text(
                   factor.factorName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  style: JHTextStyles.button.copyWith(
                     color: ColorConstant.bluedark,
-                    fontFamily: 'Poppins',
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -993,7 +922,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     color: ColorConstant.gentleGray,
-                    fontFamily: 'Poppins',
+                    
                   ),
                 ),
               ],
@@ -1007,11 +936,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
             child: Text(
               '${factor.occurrences}x',
-              style: const TextStyle(
-                fontSize: 11,
+              style: JHTextStyles.caption.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-                fontFamily: 'Poppins',
               ),
             ),
           ),
@@ -1088,40 +1015,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required String subtitle,
     required Widget child,
   }) {
-    return Container(
-      width: double.infinity,
+    return StandardCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ColorConstant.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h4.copyWith(
               color: ColorConstant.bluedark,
-              fontFamily: 'Poppins',
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(
-              fontSize: 13,
+            style: JHTextStyles.bodySmall.copyWith(
               color: ColorConstant.gentleGray,
-              fontFamily: 'Poppins',
             ),
           ),
           child,
@@ -1146,21 +1055,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 24),
             Text(
               'No Assessment Data Yet',
-              style: TextStyle(
+              style: JHTextStyles.h3.copyWith(
                 fontSize: 22,
-                fontWeight: FontWeight.bold,
                 color: ColorConstant.bluedark,
-                fontFamily: 'Poppins',
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Complete your first heart risk assessment to start tracking your cardiovascular health journey.',
-              style: TextStyle(
+              style: JHTextStyles.bodyBase.copyWith(
                 fontSize: 15,
                 color: ColorConstant.gentleGray,
-                fontFamily: 'Poppins',
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
@@ -1190,9 +1096,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Color _getTrendColor(String trend) {
     switch (trend) {
       case 'improving':
-        return const Color(0xFF4CAF50);
+        return const JHColors.success;
       case 'worsening':
-        return const Color(0xFFF44336);
+        return const JHColors.danger;
       default:
         return ColorConstant.trustBlue;
     }
@@ -1223,15 +1129,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
       case 'critical':
-        return const Color(0xFFDC143C);
+        return const JHColors.dangerDark;
       case 'high':
-        return const Color(0xFFFF6347);
+        return const JHColors.danger;
       case 'moderate':
-        return const Color(0xFFFFA500);
+        return const JHColors.warning;
       case 'mild':
-        return const Color(0xFFFFD700);
+        return const JHColors.warning;
       case 'low':
-        return const Color(0xFF32CD32);
+        return const JHColors.success;
       default:
         return Colors.grey;
     }
@@ -1239,15 +1145,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Color _getHeatmapColor(int score) {
     if (score <= 5) {
-      return const Color(0xFF32CD32); // Green
+      return const JHColors.success; // Green
     } else if (score <= 10) {
-      return const Color(0xFFFFD700); // Yellow
+      return const JHColors.warning; // Yellow
     } else if (score <= 15) {
-      return const Color(0xFFFFA500); // Orange
+      return const JHColors.warning; // Orange
     } else if (score <= 20) {
-      return const Color(0xFFFF6347); // Red-Orange
+      return const JHColors.danger; // Red-Orange
     } else {
-      return const Color(0xFFDC143C); // Red
+      return const JHColors.dangerDark; // Red
     }
   }
 }

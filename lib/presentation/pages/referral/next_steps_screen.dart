@@ -16,8 +16,10 @@ import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/models/referral_data.dart';
 import 'package:juan_heart/services/referral_service.dart';
 import 'package:juan_heart/routes/app_routes.dart';
-import 'package:juan_heart/themes/app_styles.dart';
 import 'package:juan_heart/presentation/widgets/referral_widgets.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 
 class NextStepsScreen extends StatelessWidget {
   final CareRecommendation recommendation;
@@ -36,15 +38,18 @@ class NextStepsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: ColorConstant.softWhite,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
         title: Text(
           lang == 'fil' ? 'Iyong Susunod na Hakbang' : 'Your Next Steps',
-          style: AppStyle.txtPoppinsSemiBold20Dark,
+          style: JHTextStyles.h3.copyWith(
+            color: ColorConstant.bluedark,
+          ),
         ),
       ),
       body: Container(
@@ -133,8 +138,8 @@ class NextStepsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            ColorConstant.emergencyBadge.withOpacity(0.15),
-            ColorConstant.emergencyBadge.withOpacity(0.05),
+            ColorConstant.emergencyBadge.withValues(alpha: 0.15),
+            ColorConstant.emergencyBadge.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
@@ -156,17 +161,14 @@ class NextStepsScreen extends StatelessWidget {
               children: [
                 Text(
                   lang == 'fil' ? '⚠️ EMERGENCY' : '⚠️ EMERGENCY',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  style: JHTextStyles.bodyBase.copyWith(
                     color: ColorConstant.emergencyBadge,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   ReferralService.getEmergencyDisclaimer(lang),
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: JHTextStyles.caption.copyWith(
                     color: ColorConstant.bluedark,
                     fontWeight: FontWeight.w500,
                     height: 1.4,
@@ -224,157 +226,129 @@ class NextStepsScreen extends StatelessWidget {
     );
   }
   
-  /// Risk summary card with score and category - Enhanced version
+  /// Risk summary card with score and category - Minimalist monochrome version
   Widget _buildRiskSummary(String lang) {
-    return Container(
+    return StandardCard(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: recommendation.indicatorColor.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          // Colored header bar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  recommendation.indicatorColor.withOpacity(0.8),
-                  recommendation.indicatorColor,
-                ],
+          // Header with status indicator dot
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: recommendation.indicatorColor,
+                  shape: BoxShape.circle,
+                ),
               ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Center(
-              child: Text(
+              const SizedBox(width: 10),
+              Text(
                 lang == 'fil' ? 'Resulta ng Assessment' : 'Assessment Result',
-                style: const TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: const JHColors.midnightBlue,
                   letterSpacing: 0.5,
                 ),
               ),
-            ),
+            ],
           ),
-          
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                // Risk icon and score
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: recommendation.indicatorColor.withOpacity(0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        recommendation.urgencyIcon,
-                        size: 52,
-                        color: recommendation.indicatorColor,
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          recommendation.riskCategory,
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: recommendation.indicatorColor,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ColorConstant.gentleGray.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${lang == "fil" ? "Puntos" : "Score"}: ${recommendation.riskScore}/25',
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: ColorConstant.bluedark,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+
+          const SizedBox(height: 24),
+
+          // Risk icon and score
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: ColorConstant.gentleGray.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                  shape: BoxShape.circle,
                 ),
-                
-                const SizedBox(height: 20),
-                
-                // Urgency timeframe with better visual
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        recommendation.indicatorColor.withOpacity(0.08),
-                        recommendation.indicatorColor.withOpacity(0.03),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: recommendation.indicatorColor.withOpacity(0.2),
-                      width: 1.5,
+                child: Icon(
+                  recommendation.urgencyIcon,
+                  size: 52,
+                  color: ColorConstant.bluedark,
+                ),
+              ),
+              const SizedBox(width: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recommendation.riskCategory,
+                    style: JHTextStyles.h3.copyWith(
+                      color: const JHColors.midnightBlue,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.schedule,
-                        color: recommendation.indicatorColor,
-                        size: 22,
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: ColorConstant.gentleGray.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${lang == "fil" ? "Puntos" : "Score"}: ${recommendation.riskScore}/25',
+                      style: JHTextStyles.bodySmall.copyWith(
+                        color: ColorConstant.bluedark,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              lang == 'fil' ? 'Kaagaran ng Aksyon' : 'Action Timeframe',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: ColorConstant.gentleGray,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              recommendation.timeframe,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: recommendation.indicatorColor,
-                              ),
-                            ),
-                          ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Urgency timeframe - Monochrome version
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: ColorConstant.softWhite,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: ColorConstant.gentleGray.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.schedule,
+                  color: ColorConstant.bluedark,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lang == 'fil' ? 'Kaagaran ng Aksyon' : 'Action Timeframe',
+                        style: JHTextStyles.label.copyWith(
+                          color: ColorConstant.gentleGray,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        recommendation.timeframe,
+                        style: JHTextStyles.bodyBase.copyWith(
+                          color: const JHColors.midnightBlue,
                         ),
                       ),
                     ],
@@ -390,20 +364,8 @@ class NextStepsScreen extends StatelessWidget {
   
   /// Recommendation details section - Enhanced with better visual hierarchy
   Widget _buildRecommendationDetails(String lang) {
-    return Container(
+    return StandardCard(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: ColorConstant.cardShadowMedium,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -415,8 +377,8 @@ class NextStepsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      ColorConstant.calmingBlue.withOpacity(0.15),
-                      ColorConstant.calmingBlue.withOpacity(0.08),
+                      ColorConstant.calmingBlue.withValues(alpha: 0.15),
+                      ColorConstant.calmingBlue.withValues(alpha: 0.08),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(10),
@@ -431,9 +393,7 @@ class NextStepsScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   lang == 'fil' ? 'Ano ang dapat gawin?' : 'What Should You Do?',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: JHTextStyles.bodyBase.copyWith(
                     color: ColorConstant.gentleGray,
                   ),
                 ),
@@ -446,9 +406,7 @@ class NextStepsScreen extends StatelessWidget {
           // Action title
           Text(
             recommendation.actionTitle,
-            style: TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h4.copyWith(
               color: ColorConstant.bluedark,
               height: 1.3,
               letterSpacing: -0.3,
@@ -460,8 +418,7 @@ class NextStepsScreen extends StatelessWidget {
           // Action message
           Text(
             recommendation.actionMessage,
-            style: TextStyle(
-              fontSize: 15,
+            style: JHTextStyles.bodySmall.copyWith(
               color: ColorConstant.gentleGray,
               height: 1.7,
             ),
@@ -479,24 +436,8 @@ class NextStepsScreen extends StatelessWidget {
         .where((line) => line.trim().isNotEmpty)
         .toList();
     
-    return Container(
+    return StandardCard(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            ColorConstant.calmingBlue.withOpacity(0.08),
-            ColorConstant.calmingBlue.withOpacity(0.03),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ColorConstant.calmingBlue.withOpacity(0.2),
-          width: 1.5,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -505,7 +446,7 @@ class NextStepsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: ColorConstant.calmingBlue.withOpacity(0.15),
+                  color: ColorConstant.calmingBlue.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -517,9 +458,7 @@ class NextStepsScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 lang == 'fil' ? 'Mga Rekomendasyon' : 'Detailed Recommendations',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
+                style: JHTextStyles.h5.copyWith(
                   color: ColorConstant.trustBlue,
                 ),
               ),
@@ -548,9 +487,8 @@ class NextStepsScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           point.replaceFirst(RegExp(r'^[•\-\*]\s*'), ''),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: ColorConstant.bluedark.withOpacity(0.95),
+                          style: JHTextStyles.bodySmall.copyWith(
+                            color: ColorConstant.bluedark.withValues(alpha: 0.95),
                             height: 1.6,
                           ),
                         ),
@@ -561,9 +499,8 @@ class NextStepsScreen extends StatelessWidget {
           else
             Text(
               recommendation.detailedGuidance,
-              style: TextStyle(
-                fontSize: 14,
-                color: ColorConstant.bluedark.withOpacity(0.95),
+              style: JHTextStyles.bodySmall.copyWith(
+                color: ColorConstant.bluedark.withValues(alpha: 0.95),
                 height: 1.7,
               ),
             ),
@@ -672,7 +609,7 @@ class NextStepsScreen extends StatelessWidget {
         color: ColorConstant.warmBeige,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ColorConstant.gentleGray.withOpacity(0.3),
+          color: ColorConstant.gentleGray.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -682,7 +619,7 @@ class NextStepsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: ColorConstant.gentleGray.withOpacity(0.2),
+              color: ColorConstant.gentleGray.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -698,8 +635,7 @@ class NextStepsScreen extends StatelessWidget {
               children: [
                 Text(
                   lang == 'fil' ? 'Mahalagang Paalala' : 'Important Note',
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: JHTextStyles.caption.copyWith(
                     fontWeight: FontWeight.bold,
                     color: ColorConstant.trustBlue,
                   ),
@@ -707,9 +643,8 @@ class NextStepsScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   ReferralService.getMedicalDisclaimer(lang),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: ColorConstant.bluedark.withOpacity(0.8),
+                  style: JHTextStyles.label.copyWith(
+                    color: ColorConstant.bluedark.withValues(alpha: 0.8),
                     height: 1.6,
                   ),
                 ),
