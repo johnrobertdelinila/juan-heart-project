@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -161,14 +160,14 @@ class PDFReportService {
               pw.Container(
                 width: 40,
                 height: 40,
-                decoration: pw.BoxDecoration(
+                decoration: const pw.BoxDecoration(
                   color: PdfColors.red400,
                   shape: pw.BoxShape.circle,
                 ),
                 child: pw.Center(
                   child: pw.Text(
                     '♥',
-                    style: pw.TextStyle(
+                    style: const pw.TextStyle(
                       fontSize: 20,
                       color: PdfColors.white,
                     ),
@@ -191,7 +190,7 @@ class PDFReportService {
                     pw.SizedBox(height: 5),
                     pw.Text(
                       'Philippine Heart Center',
-                      style: pw.TextStyle(
+                      style: const pw.TextStyle(
                         fontSize: 14,
                         color: PdfColors.blue700,
                       ),
@@ -229,7 +228,7 @@ class PDFReportService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Risk Category:', style: pw.TextStyle(fontSize: 12)),
+              pw.Text('Risk Category:', style: const pw.TextStyle(fontSize: 12)),
               pw.Text(
                 result['riskCategory'],
                 style: pw.TextStyle(
@@ -244,7 +243,7 @@ class PDFReportService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Final Risk Score:', style: pw.TextStyle(fontSize: 12)),
+              pw.Text('Final Risk Score:', style: const pw.TextStyle(fontSize: 12)),
               pw.Text(
                 '${result['finalRiskScore']}/25',
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
@@ -255,10 +254,10 @@ class PDFReportService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Likelihood:', style: pw.TextStyle(fontSize: 12)),
+              pw.Text('Likelihood:', style: const pw.TextStyle(fontSize: 12)),
               pw.Text(
                 '${result['likelihoodScore']} (${result['likelihoodLevel']})',
-                style: pw.TextStyle(fontSize: 12),
+                style: const pw.TextStyle(fontSize: 12),
               ),
             ],
           ),
@@ -266,10 +265,10 @@ class PDFReportService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Impact:', style: pw.TextStyle(fontSize: 12)),
+              pw.Text('Impact:', style: const pw.TextStyle(fontSize: 12)),
               pw.Text(
                 '${result['impactScore']} (${result['impactLevel']})',
-                style: pw.TextStyle(fontSize: 12),
+                style: const pw.TextStyle(fontSize: 12),
               ),
             ],
           ),
@@ -281,7 +280,7 @@ class PDFReportService {
           pw.SizedBox(height: 5),
           pw.Text(
             result['recommendedAction'],
-            style: pw.TextStyle(fontSize: 12),
+            style: const pw.TextStyle(fontSize: 12),
           ),
         ],
       ),
@@ -310,7 +309,7 @@ class PDFReportService {
           pw.SizedBox(height: 10),
           pw.Text(
             result['explanation'],
-            style: pw.TextStyle(fontSize: 12),
+            style: const pw.TextStyle(fontSize: 12),
           ),
           pw.SizedBox(height: 10),
           pw.Text(
@@ -320,7 +319,7 @@ class PDFReportService {
           pw.SizedBox(height: 5),
           pw.Text(
             result['safetyMessage'],
-            style: pw.TextStyle(fontSize: 12, color: PdfColors.red700),
+            style: const pw.TextStyle(fontSize: 12, color: PdfColors.red700),
           ),
         ],
       ),
@@ -354,7 +353,7 @@ class PDFReportService {
             padding: const pw.EdgeInsets.only(bottom: 4),
             child: pw.Text(
               '• $rec',
-              style: pw.TextStyle(fontSize: 12),
+              style: const pw.TextStyle(fontSize: 12),
             ),
           )).toList(),
         ],
@@ -405,7 +404,7 @@ class PDFReportService {
           pw.Expanded(
             child: pw.Text(
               value,
-              style: pw.TextStyle(fontSize: 12),
+              style: const pw.TextStyle(fontSize: 12),
               textAlign: pw.TextAlign.right,
             ),
           ),
@@ -425,18 +424,18 @@ class PDFReportService {
         children: [
           pw.Text(
             'Report Generated: ${dateFormat.format(now)} at ${timeFormat.format(now)}',
-            style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
           ),
           pw.SizedBox(height: 8),
           pw.Text(
             'This report is generated by Juan Heart - Medical Triage Assessment System',
-            style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             textAlign: pw.TextAlign.center,
           ),
           pw.SizedBox(height: 8),
           pw.Text(
             'IMPORTANT: This assessment is for triage guidance only and does not replace professional medical consultation. Always consult with qualified healthcare professionals for proper medical evaluation.',
-            style: pw.TextStyle(fontSize: 9, color: PdfColors.red700),
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.red700),
             textAlign: pw.TextAlign.center,
           ),
         ],

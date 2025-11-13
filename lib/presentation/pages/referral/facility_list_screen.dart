@@ -18,8 +18,8 @@ import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/models/referral_data.dart';
 import 'package:juan_heart/services/facility_service.dart';
 import 'package:juan_heart/routes/app_routes.dart';
-import 'package:juan_heart/themes/app_styles.dart';
 import 'package:juan_heart/presentation/widgets/referral_widgets.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 class FacilityListScreen extends StatefulWidget {
   const FacilityListScreen({Key? key}) : super(key: key);
@@ -35,6 +35,8 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
 
   bool _isLoading = true;
   bool _locationError = false;
+  bool _permissionDenied = false;
+  bool _permissionDeniedForever = false;
   String _errorMessage = '';
 
   Position? _userLocation;
@@ -46,12 +48,12 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
   int _selectedFilterIndex = 0;
   final List<String> _filterOptionsEN = ['All', 'Nearest', 'Emergency', '24/7', 'Public'];
   final List<String> _filterOptionsFIL = ['Lahat', 'Malapit', 'Emergency', '24/7', 'Pampubliko'];
-  
+
   @override
   void initState() {
     super.initState();
     _loadArguments();
-    _loadFacilities();
+    _checkLocationPermissionAndLoad();
   }
   
   void _loadArguments() {
@@ -62,7 +64,264 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
       _bookingIntent = args['bookingIntent'] as bool? ?? false; // NEW: Read booking intent
     }
   }
-  
+
+  /// Check location permission and show dialog if needed
+  Future<void> _checkLocationPermissionAndLoad() async {
+    final String lang = Get.locale?.languageCode ?? 'en';
+
+    // Check if location services are enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServiceDialog(lang);
+      return;
+    }
+
+    // Check permission status
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      // Show permission request dialog
+      _showPermissionRequestDialog(lang);
+    } else if (permission == LocationPermission.deniedForever) {
+      // Permission permanently denied
+      setState(() {
+        _permissionDenied = true;
+        _permissionDeniedForever = true;
+      });
+      _loadFacilitiesWithoutLocation();
+    } else {
+      // Permission granted, load facilities normally
+      _loadFacilities();
+    }
+  }
+
+  /// Show location service disabled dialog
+  void _showLocationServiceDialog(String lang) {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.location_off, color: ColorConstant.warningColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                lang == 'fil' ? 'Location Service Nakapatay' : 'Location Service Disabled',
+                style: JHTextStyles.h4,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          lang == 'fil'
+              ? 'Kailangan nating i-enable ang location service ng iyong device para mahanap ang pinakamalapit na healthcare facilities.'
+              : 'We need to enable your device\'s location service to find the nearest healthcare facilities.',
+          style: JHTextStyles.bodyBase.copyWith(fontSize: 15, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Get.back();
+              setState(() {
+                _permissionDenied = true;
+              });
+              _loadFacilitiesWithoutLocation();
+            },
+            child: Text(
+              lang == 'fil' ? 'Bukas Na Lang' : 'Not Now',
+              style: TextStyle(color: ColorConstant.gentleGray),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              bool opened = await FacilityService.openLocationSettings();
+              if (opened) {
+                // Wait a bit for user to enable location
+                await Future.delayed(const Duration(seconds: 1));
+                _checkLocationPermissionAndLoad();
+              } else {
+                setState(() {
+                  _permissionDenied = true;
+                });
+                _loadFacilitiesWithoutLocation();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorConstant.calmingBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              lang == 'fil' ? 'Buksan Settings' : 'Open Settings',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// Show permission request dialog
+  void _showPermissionRequestDialog(String lang) {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.location_on, color: ColorConstant.calmingBlue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                lang == 'fil' ? 'Location Permission' : 'Location Permission',
+                style: JHTextStyles.h4,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              lang == 'fil'
+                  ? 'Kailangan namin ang iyong location para mahanap ang pinakamalapit na healthcare facilities.'
+                  : 'We need your location to find the nearest healthcare facilities.',
+              style: JHTextStyles.bodyBase.copyWith(fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ColorConstant.calmingBlue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: ColorConstant.calmingBlue, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      lang == 'fil'
+                          ? 'Makikita ang accurate na distansya'
+                          : 'See accurate distances',
+                      style: JHTextStyles.bodySmall.copyWith(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Get.back();
+              setState(() {
+                _permissionDenied = true;
+              });
+              _loadFacilitiesWithoutLocation();
+            },
+            child: Text(
+              lang == 'fil' ? 'Hindi Muna' : 'Not Now',
+              style: TextStyle(color: ColorConstant.gentleGray),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              LocationPermission permission = await Geolocator.requestPermission();
+              if (permission == LocationPermission.denied ||
+                  permission == LocationPermission.deniedForever) {
+                setState(() {
+                  _permissionDenied = true;
+                  _permissionDeniedForever = permission == LocationPermission.deniedForever;
+                });
+                _loadFacilitiesWithoutLocation();
+              } else {
+                _loadFacilities();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ColorConstant.calmingBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              lang == 'fil' ? 'Payagan' : 'Allow',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// Load facilities without location (show all facilities without distance sorting)
+  Future<void> _loadFacilitiesWithoutLocation() async {
+    setState(() {
+      _isLoading = true;
+      _locationError = false;
+      _errorMessage = '';
+    });
+
+    try {
+      // Create a fake position to get all facilities (far away so all facilities are included)
+      Position fakePosition = Position(
+        latitude: 0,
+        longitude: 0,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+
+      // Get all facilities with a very large radius
+      List<HealthcareFacility> allFacilities;
+
+      if (_recommendation?.isEmergency == true) {
+        allFacilities = await FacilityService.getEmergencyFacilities(
+          userLocation: fakePosition,
+          maxDistance: 10000, // Very large radius to get all facilities
+        );
+      } else if (_recommendation != null) {
+        allFacilities = await FacilityService.getNearbyFacilities(
+          userLocation: fakePosition,
+          facilityTypes: _recommendation!.recommendedFacilities,
+          maxDistance: 10000,
+          maxResults: 100,
+        );
+      } else {
+        allFacilities = await FacilityService.getNearbyFacilities(
+          userLocation: fakePosition,
+          maxDistance: 10000,
+          maxResults: 100,
+        );
+      }
+
+      // Sort alphabetically instead of by distance since we don't have real location
+      allFacilities.sort((a, b) => a.name.compareTo(b.name));
+
+      setState(() {
+        _facilities = allFacilities;
+        _filteredFacilities = allFacilities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _locationError = true;
+        _errorMessage = Get.locale?.languageCode == 'fil'
+            ? 'May error sa pagkuha ng mga pasilidad: $e'
+            : 'Error loading facilities: $e';
+      });
+    }
+  }
+
   Future<void> _loadFacilities() async {
     setState(() {
       _isLoading = true;
@@ -178,29 +437,20 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
     return Scaffold(
       backgroundColor: ColorConstant.softWhite,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              lang == 'fil' ? 'Hanapin ang Facility' : 'Find Care',
-              style: AppStyle.txtPoppinsSemiBold20Dark,
-            ),
-            if (_userLocation != null)
-              Text(
-                lang == 'fil' ? 'Malapit sa iyo' : 'Near you',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: ColorConstant.gentleGray,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          ],
+        title: Text(
+          lang == 'fil' ? 'Hanapin ang Facility' : 'Find Care',
+          style: TextStyle(
+            color: ColorConstant.bluedark,
+            
+            fontWeight: FontWeight.w700,
+          ),
         ),
         actions: [
           IconButton(
@@ -256,10 +506,9 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
               lang == 'fil'
                   ? 'Hinahanap namin ang pinakamalapit na tulong...'
                   : 'We\'re finding the nearest care for you...',
-              style: TextStyle(
+              style: JHTextStyles.h4.copyWith(
                 fontSize: 17,
                 color: ColorConstant.bluedark,
-                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -267,8 +516,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
               lang == 'fil'
                   ? 'Sandali lang po...'
                   : 'Just a moment...',
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodyBase.copyWith(
                 color: ColorConstant.gentleGray,
               ),
             ),
@@ -287,10 +535,14 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
     
     return Column(
       children: [
+        // Permission denied banner
+        if (_permissionDenied)
+          _buildPermissionDeniedBanner(lang),
+
         // Urgency banner (if applicable)
         if (_recommendation?.isUrgent == true)
           _buildUrgencyBanner(lang),
-        
+
         // Guidance message
         _buildGuidanceMessage(lang),
         
@@ -406,7 +658,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
             Icon(
               Icons.filter_alt_off,
               size: 64,
-              color: ColorConstant.gentleGray.withOpacity(0.5),
+              color: ColorConstant.gentleGray.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -414,9 +666,8 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                   ? 'Walang nakitang facility sa filter na ito'
                   : 'No facilities found with this filter',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: JHTextStyles.h4.copyWith(
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -426,8 +677,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                   ? 'Subukan ang ibang filter o tingnan ang lahat'
                   : 'Try a different filter or view all',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodyBase.copyWith(
                 color: ColorConstant.gentleGray,
               ),
             ),
@@ -447,17 +697,112 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
     );
   }
   
+  /// Permission denied warning banner
+  Widget _buildPermissionDeniedBanner(String lang) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstant.warningColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ColorConstant.warningColor,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.location_off,
+            color: ColorConstant.warningColor,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lang == 'fil'
+                      ? 'Location Permission Denied'
+                      : 'Location Permission Denied',
+                  style: JHTextStyles.button.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: ColorConstant.bluedark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  lang == 'fil'
+                      ? 'Showing all facilities without distance sorting.'
+                      : 'Showing all facilities without distance sorting.',
+                  style: JHTextStyles.caption.copyWith(
+                    color: ColorConstant.gentleGray,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (_permissionDeniedForever)
+            OutlinedButton(
+              onPressed: () async {
+                bool opened = await FacilityService.openLocationSettings();
+                if (opened) {
+                  // Wait for user to potentially enable permission
+                  await Future.delayed(const Duration(seconds: 1));
+                  // Recheck permission
+                  _checkLocationPermissionAndLoad();
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ColorConstant.warningColor,
+                side: BorderSide(color: ColorConstant.warningColor, width: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                lang == 'fil' ? 'I-enable' : 'Enable',
+                style: JHTextStyles.label,
+              ),
+            )
+          else
+            OutlinedButton(
+              onPressed: () {
+                // Retry permission request
+                _checkLocationPermissionAndLoad();
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ColorConstant.calmingBlue,
+                side: BorderSide(color: ColorConstant.calmingBlue, width: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                lang == 'fil' ? 'Subukan' : 'Retry',
+                style: JHTextStyles.label,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildUrgencyBanner(String lang) {
     if (_recommendation == null) return const SizedBox.shrink();
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            _recommendation!.indicatorColor.withOpacity(0.15),
-            _recommendation!.indicatorColor.withOpacity(0.05),
+            _recommendation!.indicatorColor.withValues(alpha: 0.15),
+            _recommendation!.indicatorColor.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(14),
@@ -471,7 +816,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _recommendation!.indicatorColor.withOpacity(0.2),
+              color: _recommendation!.indicatorColor.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -489,7 +834,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                   _recommendation!.isEmergency
                       ? (lang == 'fil' ? '⚠️ EMERGENCY' : '⚠️ EMERGENCY')
                       : (lang == 'fil' ? 'Urgent Care Needed' : 'Urgent Care Needed'),
-                  style: TextStyle(
+                  style: JHTextStyles.button.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: _recommendation!.indicatorColor,
@@ -502,10 +847,9 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                           ? 'Pumili ng pinakamalapit na facility'
                           : 'Choose the nearest facility')
                       : _recommendation!.timeframe,
-                  style: TextStyle(
+                  style: JHTextStyles.bodySmall.copyWith(
                     fontSize: 13,
-                    color: ColorConstant.bluedark.withOpacity(0.9),
-                    fontWeight: FontWeight.w500,
+                    color: ColorConstant.bluedark.withValues(alpha: 0.9),
                   ),
                 ),
               ],
@@ -524,7 +868,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: ColorConstant.calmingBlue.withOpacity(0.12),
+              color: ColorConstant.calmingBlue.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
@@ -538,15 +882,14 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
             lang == 'fil'
                 ? '${_filteredFacilities.length} facility'
                 : '${_filteredFacilities.length} facilities',
-            style: TextStyle(
+            style: JHTextStyles.button.copyWith(
               fontSize: 15,
               color: ColorConstant.bluedark,
-              fontWeight: FontWeight.w600,
             ),
           ),
           Text(
             lang == 'fil' ? ' nakita malapit sa iyo' : ' found near you',
-            style: TextStyle(
+            style: JHTextStyles.button.copyWith(
               fontSize: 15,
               color: ColorConstant.gentleGray,
               fontWeight: FontWeight.w500,
@@ -584,13 +927,13 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    ColorConstant.reassuringGreen.withOpacity(0.08),
-                    ColorConstant.reassuringGreen.withOpacity(0.03),
+                    ColorConstant.reassuringGreen.withValues(alpha: 0.08),
+                    ColorConstant.reassuringGreen.withValues(alpha: 0.03),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: ColorConstant.reassuringGreen.withOpacity(0.3),
+                  color: ColorConstant.reassuringGreen.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -608,18 +951,14 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                       children: [
                         Text(
                           lang == 'fil' ? 'Napili:' : 'Selected:',
-                          style: TextStyle(
-                            fontSize: 11,
+                          style: JHTextStyles.caption.copyWith(
                             color: ColorConstant.gentleGray,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         Text(
                           _selectedFacility!.name,
-                          style: TextStyle(
-                            fontSize: 14,
+                          style: JHTextStyles.button.copyWith(
                             color: ColorConstant.bluedark,
-                            fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -677,9 +1016,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
             Text(
               lang == 'fil' ? 'Hindi ma-access ang location' : 'Location Access Needed',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              style: JHTextStyles.h3.copyWith(
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -687,7 +1024,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
             Text(
               _errorMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: JHTextStyles.bodyBase.copyWith(
                 fontSize: 15,
                 color: ColorConstant.gentleGray,
                 height: 1.5,
@@ -715,7 +1052,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                     actions: [
                       TextButton(
                         onPressed: () => Get.back(),
-                        child: Text('OK'),
+                        child: const Text('OK'),
                       ),
                     ],
                   ),
@@ -758,9 +1095,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                   ? 'Walang nakitang facility'
                   : 'No Facilities Found',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              style: JHTextStyles.h3.copyWith(
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -770,7 +1105,7 @@ class _FacilityListScreenState extends State<FacilityListScreen> with SingleTick
                   ? 'Walang available na healthcare facility sa inyong area ngayon. Subukan ang mas malaking search radius o maghanap sa ibang lugar.'
                   : 'No healthcare facilities available in your area right now. Try a wider search radius or different location.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: JHTextStyles.bodyBase.copyWith(
                 fontSize: 15,
                 color: ColorConstant.gentleGray,
                 height: 1.6,

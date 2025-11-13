@@ -14,7 +14,6 @@
 /// Branded with Philippine Heart Center partnership
 
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -153,11 +152,11 @@ class AnalyticsPDFService {
   static pw.Widget _buildHeader(String language) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(20),
-      decoration: pw.BoxDecoration(
-        gradient: const pw.LinearGradient(
+      decoration: const pw.BoxDecoration(
+        gradient: pw.LinearGradient(
           colors: [PdfColors.blue900, PdfColors.blue700],
         ),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -191,14 +190,14 @@ class AnalyticsPDFService {
               pw.Container(
                 width: 60,
                 height: 60,
-                decoration: pw.BoxDecoration(
+                decoration: const pw.BoxDecoration(
                   color: PdfColors.white,
                   shape: pw.BoxShape.circle,
                 ),
                 child: pw.Center(
                   child: pw.Text(
                     '♥',
-                    style: pw.TextStyle(
+                    style: const pw.TextStyle(
                       fontSize: 36,
                       color: PdfColors.red700,
                     ),

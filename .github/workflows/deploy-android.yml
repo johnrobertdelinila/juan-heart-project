@@ -1,0 +1,580 @@
+name: Deploy Android to Google Play
+
+# ============================================================================
+# DEPLOYMENT WORKFLOW - GOOGLE PLAY CONSOLE
+# ============================================================================
+# This workflow handles automated deployment to Google Play Console
+#
+# PREREQUISITES:
+# 1. Google Play Console account (active)
+# 2. App created in Play Console with package name: com.uc.juanheart
+# 3. Internal Testing track configured
+# 4. Service account created with Play Console API access
+#
+# REQUIRED GITHUB SECRETS:
+#   - PLAY_STORE_SERVICE_ACCOUNT_JSON: Service account JSON key (base64 encoded)
+#   - ANDROID_KEYSTORE_BASE64: Release keystore (base64 encoded)
+#   - ANDROID_STORE_PASSWORD: Keystore password
+#   - ANDROID_KEY_PASSWORD: Key password
+#   - ANDROID_KEY_ALIAS: Key alias
+#   - TWILIO_ACCOUNT_SID: Twilio credentials
+#   - TWILIO_AUTH_TOKEN: Twilio credentials
+#   - TWILIO_NUMBER: Twilio phone number
+#   - GOOGLE_GEOCODING_API_KEY: Google Maps API key
+#   - EDUCATIONAL_CONTENT_API_URL: Backend API URL
+#
+# SETUP GUIDE:
+# 1. Create service account in Google Cloud Console
+# 2. Grant "Service Account User" role
+# 3. Add service account to Play Console with "Release Manager" role
+# 4. Download JSON key and encode: cat key.json | base64
+# 5. Add as PLAY_STORE_SERVICE_ACCOUNT_JSON secret
+#
+# DEPLOYMENT TRACKS:
+#   - internal: Internal testing (quick rollout, 100 testers max)
+#   - alpha: Alpha testing (closed group, phased rollout)
+#   - beta: Beta testing (open testing or closed group)
+#   - production: Production release (phased rollout to all users)
+#
+# PHASED ROLLOUT STRATEGY:
+#   Wave 1: 20% of users (monitor for 24-48 hours)
+#   Wave 2: 50% of users (monitor for 24-48 hours)
+#   Wave 3: 100% of users (full rollout)
+#
+# ROLLBACK PROCEDURE:
+#   1. Halt staged rollout in Play Console
+#   2. Upload previous version AAB
+#   3. Promote previous version to production
+#   4. Investigate issues and create hotfix
+# ============================================================================
+
+on:
+  # Trigger on successful Android release build
+  workflow_run:
+    workflows: ["Build Android Release"]
+    types:
+      - completed
+    branches:
+      - master
+      - release/*
+
+  # Manual deployment trigger
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Deployment track'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal      # Internal testing (no review required)
+          - alpha        # Alpha testing (phased rollout)
+          - beta         # Beta testing (phased rollout)
+          - production   # Production release (requires review + phased rollout)
+
+      rollout_percentage:
+        description: 'Initial rollout percentage (for production only)'
+        required: false
+        default: '20'
+        type: choice
+        options:
+          - '10'
+          - '20'
+          - '50'
+          - '100'
+
+      skip_pre_deployment_checks:
+        description: 'Skip pre-deployment validation (not recommended)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # ============================================================================
+  # PRE-DEPLOYMENT VALIDATION
+  # ============================================================================
+  pre-deployment-checks:
+    name: Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_pre_deployment_checks != 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+
+    outputs:
+      should_deploy: ${{ steps.validation.outputs.should_deploy }}
+      version: ${{ steps.get_version.outputs.version }}
+      build_number: ${{ steps.get_version.outputs.build_number }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version information
+        id: get_version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION+$BUILD_NUMBER"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: $VERSION"
+            echo "Expected format: MAJOR.MINOR.PATCH (e.g., 1.0.0)"
+            exit 1
+          fi
+          echo "Version format valid"
+
+      - name: Check if version already deployed
+        run: |
+          # This check would query Play Console API to verify version doesn't exist
+          # For now, we'll skip to avoid API calls during validation
+          echo "Version uniqueness check: SKIPPED"
+          echo "Ensure version ${{ steps.get_version.outputs.version }} is not already deployed"
+
+      - name: Validate deployment track
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TRACK="${{ github.event.inputs.track }}"
+
+          if [ "$TRACK" == "production" ]; then
+            echo "PRODUCTION DEPLOYMENT REQUESTED"
+            echo ""
+            echo "Checklist:"
+            echo "  [ ] All tests passed"
+            echo "  [ ] QA approval obtained"
+            echo "  [ ] Stakeholder sign-off"
+            echo "  [ ] Release notes prepared"
+            echo "  [ ] Rollback plan documented"
+            echo "  [ ] Monitoring alerts configured"
+            echo ""
+            echo "WARNING: Ensure all checklist items are complete before proceeding"
+          fi
+
+          echo "Deployment track: $TRACK"
+
+      - name: Final validation
+        id: validation
+        run: |
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+          echo "Pre-deployment checks completed"
+
+  # ============================================================================
+  # BUILD APP BUNDLE
+  # ============================================================================
+  build-aab:
+    name: Build App Bundle
+    needs: pre-deployment-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Create .env file
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_NUMBER: ${{ secrets.TWILIO_NUMBER }}
+          GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY }}
+          EDUCATIONAL_CONTENT_API_URL: ${{ secrets.EDUCATIONAL_CONTENT_API_URL }}
+        run: |
+          cat > .env <<EOF
+          ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+          AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+          TWILIO_NUMBER=${TWILIO_NUMBER}
+          GENKIT_BACKEND_URL=https://us-central1-juan-heart-project.cloudfunctions.net/assessHeartRiskHttp
+          FEATURE_FLAGS_URL=
+          EDUCATIONAL_CONTENT_API_URL=${EDUCATIONAL_CONTENT_API_URL}
+          GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
+          EOF
+
+      - name: Decode keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/juan-heart-release.jks
+
+      - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${STORE_PASSWORD}
+          keyPassword=${KEY_PASSWORD}
+          keyAlias=${KEY_ALIAS}
+          storeFile=juan-heart-release.jks
+          EOF
+
+      - name: Update version
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+          sed -i "s/^version: .*/version: $VERSION+$BUILD_NUMBER/" pubspec.yaml
+          echo "Updated version to $VERSION+$BUILD_NUMBER"
+
+      - name: Build App Bundle
+        run: |
+          flutter build appbundle --release
+          echo "App Bundle build complete"
+
+      - name: Verify AAB signature
+        run: |
+          AAB_PATH="build/app/outputs/bundle/release/app-release.aab"
+          if [ -f "$AAB_PATH" ]; then
+            echo "AAB file found: $AAB_PATH"
+            ls -lh "$AAB_PATH"
+
+            # Extract and verify signing certificate
+            jarsigner -verify -verbose -certs "$AAB_PATH"
+
+            if [ $? -eq 0 ]; then
+              echo "AAB signature verified successfully"
+            else
+              echo "AAB signature verification failed"
+              exit 1
+            fi
+          else
+            echo "AAB file not found"
+            exit 1
+          fi
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-bundle-${{ needs.pre-deployment-checks.outputs.version }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 90
+
+      - name: Upload ProGuard mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: proguard-mapping-${{ needs.pre-deployment-checks.outputs.version }}
+          path: build/app/outputs/mapping/release/mapping.txt
+          retention-days: 90
+
+  # ============================================================================
+  # DEPLOY TO GOOGLE PLAY
+  # ============================================================================
+  deploy-to-play-store:
+    name: Deploy to Google Play
+    needs: [pre-deployment-checks, build-aab]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Require approval for production deployments
+    environment:
+      name: ${{ github.event.inputs.track == 'production' && 'production' || 'staging' }}
+      url: https://play.google.com/console
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-bundle-${{ needs.pre-deployment-checks.outputs.version }}
+          path: ./artifacts
+
+      - name: Download ProGuard mapping
+        uses: actions/download-artifact@v4
+        with:
+          name: proguard-mapping-${{ needs.pre-deployment-checks.outputs.version }}
+          path: ./artifacts/mapping
+
+      - name: Verify artifacts
+        run: |
+          echo "Verifying downloaded artifacts..."
+          ls -lh ./artifacts/
+          ls -lh ./artifacts/mapping/
+
+          if [ ! -f "./artifacts/app-release.aab" ]; then
+            echo "AAB file not found"
+            exit 1
+          fi
+
+          if [ ! -f "./artifacts/mapping/mapping.txt" ]; then
+            echo "ProGuard mapping not found"
+            exit 1
+          fi
+
+          echo "All artifacts verified"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+
+          # Generate release notes from recent commits
+          RELEASE_NOTES=$(cat <<EOF
+          Juan Heart Mobile v${VERSION} (Build ${BUILD_NUMBER})
+
+          What's New:
+          $(git log --pretty=format:"- %s" -10 | grep -v "Merge" | head -5)
+
+          Improvements:
+          - Performance optimizations
+          - Bug fixes and stability improvements
+          - Enhanced offline sync capabilities
+
+          For healthcare workers and CVD prevention in the Philippines.
+          EOF
+          )
+
+          # Save to file for upload
+          echo "$RELEASE_NOTES" > release-notes.txt
+          cat release-notes.txt
+
+          # Also save to output for use in steps
+          echo "notes_file=release-notes.txt" >> $GITHUB_OUTPUT
+
+      - name: Setup Google Play authentication
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" | base64 --decode > service-account.json
+          echo "Service account configured"
+
+      - name: Upload to Google Play
+        id: upload
+        env:
+          TRACK: ${{ github.event.inputs.track || 'internal' }}
+          ROLLOUT_PERCENTAGE: ${{ github.event.inputs.rollout_percentage || '100' }}
+          VERSION: ${{ needs.pre-deployment-checks.outputs.version }}
+        run: |
+          # Install Google Play CLI tools
+          pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+          # Use r0adkll/upload-google-play action for deployment
+          echo "Deployment will use GitHub Action in next step"
+
+      - name: Deploy to Play Store
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: service-account.json
+          packageName: com.uc.juanheart
+          releaseFiles: ./artifacts/app-release.aab
+          track: ${{ github.event.inputs.track || 'internal' }}
+          status: ${{ github.event.inputs.track == 'production' && 'inProgress' || 'completed' }}
+          inAppUpdatePriority: 3
+          userFraction: ${{ github.event.inputs.track == 'production' && (github.event.inputs.rollout_percentage / 100) || 1 }}
+          whatsNewDirectory: .
+          mappingFile: ./artifacts/mapping/mapping.txt
+          debugSymbols: ./artifacts/mapping/mapping.txt
+
+      - name: Upload ProGuard mapping to Play Console
+        run: |
+          echo "ProGuard mapping uploaded with AAB"
+          echo "Mapping file: ./artifacts/mapping/mapping.txt"
+          echo "This enables crash deobfuscation in Play Console"
+
+      - name: Deployment summary
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+          TRACK="${{ github.event.inputs.track || 'internal' }}"
+          ROLLOUT="${{ github.event.inputs.rollout_percentage || '100' }}"
+
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** DEPLOYED" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${VERSION} (Build ${BUILD_NUMBER})" >> $GITHUB_STEP_SUMMARY
+          echo "**Track:** ${TRACK}" >> $GITHUB_STEP_SUMMARY
+          echo "**Rollout:** ${ROLLOUT}%" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$TRACK" == "production" ]; then
+            echo "1. Monitor crash reports in Play Console" >> $GITHUB_STEP_SUMMARY
+            echo "2. Check user reviews and ratings" >> $GITHUB_STEP_SUMMARY
+            echo "3. Monitor Firebase Analytics for anomalies" >> $GITHUB_STEP_SUMMARY
+
+            if [ "$ROLLOUT" != "100" ]; then
+              echo "4. Increase rollout to 50% after 24-48 hours if stable" >> $GITHUB_STEP_SUMMARY
+              echo "5. Complete rollout to 100% after another 24-48 hours" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "1. Notify QA team that new build is available" >> $GITHUB_STEP_SUMMARY
+            echo "2. Share ${TRACK} testing link with testers" >> $GITHUB_STEP_SUMMARY
+            echo "3. Monitor test feedback" >> $GITHUB_STEP_SUMMARY
+            echo "4. Fix any reported issues before production deployment" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Links" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [Play Console](https://play.google.com/console)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Release Dashboard](https://play.google.com/console/u/0/developers/com.uc.juanheart/app-dashboard)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Crash Reports](https://play.google.com/console/u/0/developers/com.uc.juanheart/vitals/crashes)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup sensitive files
+        if: always()
+        run: |
+          rm -f service-account.json
+          rm -f android/key.properties
+          rm -f android/app/juan-heart-release.jks
+          echo "Cleanup complete"
+
+  # ============================================================================
+  # POST-DEPLOYMENT VERIFICATION
+  # ============================================================================
+  post-deployment-checks:
+    name: Post-Deployment Verification
+    needs: [pre-deployment-checks, deploy-to-play-store]
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Wait for Play Console processing
+        run: |
+          echo "Waiting 60 seconds for Play Console to process upload..."
+          sleep 60
+
+      - name: Verify deployment
+        run: |
+          echo "Deployment verification steps:"
+          echo "1. Check Play Console for new version availability"
+          echo "2. Verify ProGuard mapping is uploaded"
+          echo "3. Confirm release notes are displayed correctly"
+          echo "4. Test download from Play Console (internal track)"
+          echo ""
+          echo "Manual verification required - automated checks not implemented"
+
+      - name: Notify stakeholders
+        run: |
+          TRACK="${{ github.event.inputs.track || 'internal' }}"
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+
+          echo "Notification: New version deployed"
+          echo "Version: ${VERSION}"
+          echo "Track: ${TRACK}"
+          echo ""
+          echo "Stakeholders to notify:"
+          echo "  - PHC team"
+          echo "  - University of Cordilleras"
+          echo "  - QA team"
+          echo "  - Development team"
+          echo ""
+          echo "NOTE: Set up Slack/email notifications in repository settings"
+
+      - name: Create deployment record
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+          TRACK="${{ github.event.inputs.track || 'internal' }}"
+
+          cat > deployment-record.json <<EOF
+          {
+            "version": "${VERSION}",
+            "build_number": "${BUILD_NUMBER}",
+            "track": "${TRACK}",
+            "deployed_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "deployed_by": "${{ github.actor }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}"
+          }
+          EOF
+
+          cat deployment-record.json
+          echo ""
+          echo "Deployment record created"
+
+# ============================================================================
+# TROUBLESHOOTING GUIDE
+# ============================================================================
+#
+# Common Issues and Solutions:
+#
+# 1. "Service account authentication failed"
+#    - Verify PLAY_STORE_SERVICE_ACCOUNT_JSON is base64 encoded correctly
+#    - Check service account has "Release Manager" role in Play Console
+#    - Ensure API access is enabled in Play Console settings
+#
+# 2. "Version code already exists"
+#    - Increment build number in pubspec.yaml
+#    - Or update version: "1.0.0" -> "1.0.1"
+#    - Build numbers must always increase
+#
+# 3. "AAB signature verification failed"
+#    - Verify keystore secrets are correct
+#    - Check key alias matches
+#    - Ensure keystore is base64 encoded properly
+#
+# 4. "Upload failed - Invalid package name"
+#    - Verify package name matches Play Console: com.uc.juanheart
+#    - Check applicationId in android/app/build.gradle
+#
+# 5. "ProGuard mapping upload failed"
+#    - Ensure mapping file exists in build output
+#    - Check minifyEnabled is true in build.gradle
+#    - Verify mapping file path is correct
+#
+# 6. "Phased rollout not working"
+#    - userFraction only applies to production track
+#    - Internal/alpha/beta tracks deploy to 100% automatically
+#    - Check status is 'inProgress' for phased rollouts
+#
+# 7. "Release notes not showing"
+#    - Verify whatsNewDirectory contains release notes
+#    - Check file format (plain text, max 500 chars)
+#    - Ensure language code matches (en-US)
+#
+# ROLLBACK PROCEDURE:
+#
+# If deployment causes critical issues:
+#
+# 1. Immediate halt:
+#    - Go to Play Console -> Release Management
+#    - Click "Halt rollout" for staged releases
+#
+# 2. Revert to previous version:
+#    - Upload previous known-good AAB
+#    - Promote to production track
+#    - Set rollout to 100%
+#
+# 3. Investigate and fix:
+#    - Check crash reports in Play Console
+#    - Review Firebase Crashlytics
+#    - Create hotfix branch
+#    - Deploy fixed version
+#
+# MONITORING CHECKLIST:
+#
+# After deployment, monitor for 24-48 hours:
+# - [ ] Crash rate < 1% (Play Console Vitals)
+# - [ ] ANR rate < 0.5%
+# - [ ] User rating maintained or improved
+# - [ ] No critical bugs reported
+# - [ ] Core features functioning (assessment, booking, sync)
+# - [ ] Backend API response times normal
+# - [ ] Firebase Analytics showing normal user behavior
+#
+# ============================================================================

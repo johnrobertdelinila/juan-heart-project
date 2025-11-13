@@ -155,9 +155,11 @@ class AnalyticsCSVService {
 
     // Collect all unique dates
     final allDates = <DateTime>{};
-    vitalTrends.values.forEach((trends) {
-      trends.forEach((trend) => allDates.add(trend.date));
-    });
+    for (var trends in vitalTrends.values) {
+      for (var trend in trends) {
+        allDates.add(trend.date);
+      }
+    }
 
     final sortedDates = allDates.toList()..sort();
 

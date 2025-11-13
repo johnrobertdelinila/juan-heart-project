@@ -7,9 +7,13 @@ import 'package:juan_heart/models/referral_data.dart';
 import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/services/appointment_service.dart';
 import 'package:juan_heart/services/appointment_validation_service.dart';
-import 'package:juan_heart/services/pdf_report_service.dart';
 import 'package:juan_heart/presentation/pages/home/facility_selection_screen.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:uuid/uuid.dart';
+import 'package:juan_heart/services/performance_service.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({Key? key}) : super(key: key);
@@ -21,6 +25,7 @@ class BookAppointmentScreen extends StatefulWidget {
 class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _uuid = const Uuid();
+  Trace? _screenTrace;
 
   // Form controllers
   final _facilityNameController = TextEditingController();
@@ -47,7 +52,19 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   @override
   void initState() {
     super.initState();
+    _startScreenTrace();
     _loadArguments();
+  }
+
+  /// Start screen load performance trace
+  Future<void> _startScreenTrace() async {
+    _screenTrace = await PerformanceService.instance
+        .startScreenTrace('appointment_booking_screen');
+
+    // Stop trace after first frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PerformanceService.instance.stopScreenTrace(_screenTrace);
+    });
   }
 
   /// NEW: Load arguments if coming from assessment flow
@@ -79,6 +96,16 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     super.dispose();
   }
 
+  /// Check if facility is supported by backend (has ID mapping)
+  bool _isFacilitySupported(HealthcareFacility facility) {
+    final nameLower = facility.name.trim().toLowerCase();
+    return nameLower.contains('philippine heart center') ||
+        nameLower.contains('philippine general hospital') ||
+        nameLower.contains('vicente sotto') ||
+        nameLower.contains('southern philippines medical') ||
+        nameLower.contains('quezon city general');
+  }
+
   Future<void> _selectFacility() async {
     final isFilipino = Get.locale?.languageCode == 'fil';
 
@@ -92,6 +119,20 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
       // Load available slots for this facility
       await _loadAvailableSlots();
+
+      // Warn user if facility not supported by backend
+      if (!_isFacilitySupported(facility)) {
+        Get.snackbar(
+          isFilipino ? 'Babala' : 'Warning',
+          isFilipino
+              ? 'Ang facility na ito ay hindi pa suportado ng backend. Maaaring hindi mag-sync ang appointment.'
+              : 'This facility is not yet supported by the backend. Appointment may not sync.',
+          backgroundColor: Colors.orange[100],
+          colorText: Colors.orange[900],
+          icon: const Icon(Icons.warning_amber, color: Colors.orange),
+          duration: const Duration(seconds: 5),
+        );
+      }
 
       Get.snackbar(
         isFilipino ? 'Napili!' : 'Selected!',
@@ -232,8 +273,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       }
 
       // Validate appointment data
-      final dataError =
-          AppointmentValidationService.validateAppointmentData(
+      final dataError = AppointmentValidationService.validateAppointmentData(
         facilityId: _selectedFacility!.id,
         facilityName: _facilityNameController.text.trim(),
         doctorName: _doctorNameController.text.trim(),
@@ -340,17 +380,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       appBar: AppBar(
         backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
         title: Text(
-          isFilipino ? 'Mag-book ng Appointment' : 'Book Appointment',
-          style: TextStyle(
+          isFilipino ? 'Mag-book' : 'Book',
+          style: JHTextStyles.h4.copyWith(
             color: ColorConstant.bluedark,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
           ),
         ),
       ),
@@ -407,324 +445,291 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   }
 
   Widget _buildFacilitySelectionCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  isFilipino ? 'Pumili ng Pasilidad' : 'Select Facility',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
-                    color: ColorConstant.bluedark,
-                  ),
+    return StandardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                isFilipino ? 'Pumili ng Pasilidad' : 'Select Facility',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: ColorConstant.lightRed.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    isFilipino ? 'HAKBANG 1' : 'STEP 1',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: ColorConstant.lightRed,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: _fromAssessment ? null : _selectFacility, // Disable selection if from assessment
-              child: Container(
-                padding: const EdgeInsets.all(16),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _selectedFacility != null
-                        ? ColorConstant.lightRed
-                        : Colors.grey[300]!,
-                    width: _selectedFacility != null ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: _selectedFacility != null
-                      ? ColorConstant.lightRed.withOpacity(0.05)
-                      : Colors.transparent,
+                  color: ColorConstant.lightRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: _selectedFacility == null
-                    ? Row(
-                        children: [
-                          Icon(Icons.local_hospital,
-                              color: Colors.grey[600], size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              isFilipino
-                                  ? 'Pindutin para pumili ng healthcare facility'
-                                  : 'Tap to select a healthcare facility',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[700],
-                              ),
+                child: Text(
+                  isFilipino ? 'HAKBANG 1' : 'STEP 1',
+                  style: JHTextStyles.label.copyWith(
+                    color: ColorConstant.lightRed,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: _fromAssessment
+                ? null
+                : _selectFacility, // Disable selection if from assessment
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: _selectedFacility != null
+                      ? ColorConstant.lightRed
+                      : Colors.grey[300]!,
+                  width: _selectedFacility != null ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                color: _selectedFacility != null
+                    ? ColorConstant.lightRed.withValues(alpha: 0.05)
+                    : Colors.transparent,
+              ),
+              child: _selectedFacility == null
+                  ? Row(
+                      children: [
+                        Icon(Icons.local_hospital,
+                            color: Colors.grey[600], size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isFilipino
+                                ? 'Pindutin para pumili ng healthcare facility'
+                                : 'Tap to select a healthcare facility',
+                            style: JHTextStyles.bodySmall.copyWith(
+                              color: Colors.grey[700],
                             ),
                           ),
-                          Icon(Icons.arrow_forward_ios,
-                              size: 16, color: Colors.grey[600]),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: ColorConstant.lightRed.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  _selectedFacility!.typeIcon,
-                                  color: ColorConstant.lightRed,
-                                  size: 20,
-                                ),
+                        ),
+                        Icon(Icons.arrow_forward_ios,
+                            size: 16, color: Colors.grey[600]),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: ColorConstant.lightRed
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _selectedFacility!.name,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        fontFamily: 'Poppins',
-                                        color: ColorConstant.bluedark,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                              child: Icon(
+                                _selectedFacility!.typeIcon,
+                                color: ColorConstant.lightRed,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedFacility!.name,
+                                    style: JHTextStyles.h5.copyWith(
+                                      color: ColorConstant.bluedark,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _selectedFacility!.typeName,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _selectedFacility!.typeName,
+                                    style: JHTextStyles.caption.copyWith(
+                                      color: Colors.grey[600],
                                     ),
-                                  ],
-                                ),
-                              ),
-                              Icon(Icons.check_circle,
-                                  color: ColorConstant.lightRed, size: 24),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(Icons.location_on,
-                                  size: 14, color: Colors.grey[600]),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  _selectedFacility!.address,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[700],
                                   ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                          if (_selectedFacility!.distanceKm != null) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Icon(Icons.directions_car,
-                                    size: 14, color: ColorConstant.lightRed),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _selectedFacility!.distanceText,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: ColorConstant.lightRed,
-                                  ),
+                            ),
+                            Icon(Icons.check_circle,
+                                color: ColorConstant.lightRed, size: 24),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on,
+                                size: 14, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _selectedFacility!.address,
+                                style: JHTextStyles.caption.copyWith(
+                                  color: Colors.grey[700],
                                 ),
-                              ],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
-                          const SizedBox(height: 12),
-                          // Show different message based on whether facility can be changed
+                        ),
+                        if (_selectedFacility!.distanceKm != null) ...[
+                          const SizedBox(height: 6),
                           Row(
                             children: [
-                              Icon(
-                                _fromAssessment ? Icons.lock : Icons.edit,
-                                size: 12,
-                                color: _fromAssessment ? Colors.grey[600] : ColorConstant.lightRed,
-                              ),
+                              Icon(Icons.directions_car,
+                                  size: 14, color: ColorConstant.lightRed),
                               const SizedBox(width: 4),
                               Text(
-                                _fromAssessment
-                                    ? (isFilipino
-                                        ? 'Pre-selected mula sa assessment'
-                                        : 'Pre-selected from assessment')
-                                    : (isFilipino
-                                        ? 'Pindutin para magpalit ng facility'
-                                        : 'Tap to change facility'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _fromAssessment ? Colors.grey[600] : ColorConstant.lightRed,
-                                  fontStyle: FontStyle.italic,
+                                _selectedFacility!.distanceText,
+                                style: JHTextStyles.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: ColorConstant.lightRed,
                                 ),
                               ),
                             ],
                           ),
                         ],
-                      ),
-              ),
+                        const SizedBox(height: 12),
+                        // Show different message based on whether facility can be changed
+                        Row(
+                          children: [
+                            Icon(
+                              _fromAssessment ? Icons.lock : Icons.edit,
+                              size: 12,
+                              color: _fromAssessment
+                                  ? Colors.grey[600]
+                                  : ColorConstant.lightRed,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _fromAssessment
+                                  ? (isFilipino
+                                      ? 'Pre-selected mula sa assessment'
+                                      : 'Pre-selected from assessment')
+                                  : (isFilipino
+                                      ? 'Pindutin para magpalit ng facility'
+                                      : 'Tap to change facility'),
+                              style: JHTextStyles.caption.copyWith(
+                                color: _fromAssessment
+                                    ? Colors.grey[600]
+                                    : ColorConstant.lightRed,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDateSelectionCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  isFilipino ? 'Pumili ng Petsa' : 'Select Date',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
-                    color: ColorConstant.bluedark,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: ColorConstant.lightRed.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    isFilipino ? 'HAKBANG 2' : 'STEP 2',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: ColorConstant.lightRed,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: _selectDate,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_today, color: ColorConstant.lightRed),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios,
-                        size: 16, color: Colors.grey[600]),
-                  ],
+    return StandardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                isFilipino ? 'Pumili ng Petsa' : 'Select Date',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
                 ),
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ColorConstant.lightRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  isFilipino ? 'HAKBANG 2' : 'STEP 2',
+                  style: JHTextStyles.label.copyWith(
+                    color: ColorConstant.lightRed,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: _selectDate,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today, color: ColorConstant.lightRed),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate),
+                      style: JHTextStyles.h5,
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios,
+                      size: 16, color: Colors.grey[600]),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTimeSlotSection(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  isFilipino ? 'Pumili ng Oras' : 'Select Time',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
-                    color: ColorConstant.bluedark,
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                isFilipino ? 'Pumili ng Oras' : 'Select Time',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ColorConstant.lightRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  isFilipino ? 'HAKBANG 3' : 'STEP 3',
+                  style: JHTextStyles.label.copyWith(
+                    color: ColorConstant.lightRed,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: ColorConstant.lightRed.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    isFilipino ? 'HAKBANG 3' : 'STEP 3',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: ColorConstant.lightRed,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_isLoadingSlots)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else
-              _buildTimeSlotGrid(),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingSlots)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
+            _buildTimeSlotGrid(),
+        ],
       ),
     );
   }
@@ -742,8 +747,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         if (availableSlots.isNotEmpty) ...[
           Text(
             'Available Slots',
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.caption.copyWith(
               fontWeight: FontWeight.w600,
               color: Colors.green[700],
             ),
@@ -764,9 +768,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? ColorConstant.lightRed
-                        : Colors.green[50],
+                    color:
+                        isSelected ? ColorConstant.lightRed : Colors.green[50],
                     border: Border.all(
                       color: isSelected
                           ? ColorConstant.lightRed
@@ -777,9 +780,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   ),
                   child: Text(
                     slot.time,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    style: JHTextStyles.bodySmall.copyWith(
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? Colors.white : Colors.green[800],
                     ),
                   ),
@@ -793,8 +796,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             padding: const EdgeInsets.all(16),
             child: Text(
               'No available time slots for this date',
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: Colors.grey[600],
                 fontStyle: FontStyle.italic,
               ),
@@ -805,8 +807,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           const SizedBox(height: 16),
           Text(
             'Booked Slots',
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.caption.copyWith(
               fontWeight: FontWeight.w600,
               color: Colors.grey[600],
             ),
@@ -826,8 +827,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                 ),
                 child: Text(
                   slot.time,
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: JHTextStyles.bodySmall.copyWith(
                     color: Colors.grey[600],
                     decoration: TextDecoration.lineThrough,
                   ),
@@ -841,282 +841,227 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   }
 
   Widget _buildAppointmentTypeCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isFilipino ? 'Uri ng Appointment' : 'Appointment Type',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-                color: ColorConstant.bluedark,
-              ),
+    return StandardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isFilipino ? 'Uri ng Appointment' : 'Appointment Type',
+            style: JHTextStyles.h5.copyWith(
+              color: ColorConstant.bluedark,
             ),
-            const SizedBox(height: 12),
-            ...AppointmentType.values.map((type) {
-              return RadioListTile<AppointmentType>(
-                title: Text(
-                  Appointment(
-                    id: '',
-                    facilityId: '',
-                    facilityName: '',
-                    doctorName: '',
-                    appointmentDate: DateTime.now(),
-                    appointmentTime: '',
-                    status: AppointmentStatus.pending,
-                    type: type,
-                  ).getTypeText(isFilipino ? 'fil' : 'en'),
-                  style: const TextStyle(fontSize: 14),
-                ),
-                value: type,
-                groupValue: _selectedType,
-                activeColor: ColorConstant.lightRed,
-                onChanged: (AppointmentType? value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedType = value;
-                    });
-                  }
-                },
-              );
-            }).toList(),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          ...AppointmentType.values.map((type) {
+            return RadioListTile<AppointmentType>(
+              title: Text(
+                Appointment(
+                  id: '',
+                  facilityId: '',
+                  facilityName: '',
+                  doctorName: '',
+                  appointmentDate: DateTime.now(),
+                  appointmentTime: '',
+                  status: AppointmentStatus.pending,
+                  type: type,
+                ).getTypeText(isFilipino ? 'fil' : 'en'),
+                style: JHTextStyles.bodySmall,
+              ),
+              value: type,
+              groupValue: _selectedType,
+              activeColor: ColorConstant.lightRed,
+              onChanged: (AppointmentType? value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedType = value;
+                  });
+                }
+              },
+            );
+          }).toList(),
+        ],
       ),
     );
   }
 
   Widget _buildFacilityInfoCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isFilipino ? 'Impormasyon ng Pasilidad' : 'Facility Information',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-                color: ColorConstant.bluedark,
-              ),
+    return StandardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isFilipino ? 'Impormasyon ng Pasilidad' : 'Facility Information',
+            style: JHTextStyles.h5.copyWith(
+              color: ColorConstant.bluedark,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _facilityNameController,
-              decoration: InputDecoration(
-                labelText: isFilipino ? 'Pangalan ng Pasilidad' : 'Facility Name',
-                hintText: isFilipino
-                    ? 'e.g., Philippine Heart Center'
-                    : 'e.g., Philippine Heart Center',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                prefixIcon: const Icon(Icons.local_hospital),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _facilityNameController,
+            decoration: InputDecoration(
+              labelText: isFilipino ? 'Pangalan ng Pasilidad' : 'Facility Name',
+              hintText: isFilipino
+                  ? 'e.g., Philippine Heart Center'
+                  : 'e.g., Philippine Heart Center',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return isFilipino
-                      ? 'Kailangan ang pangalan ng pasilidad'
-                      : 'Facility name is required';
-                }
-                return null;
-              },
+              prefixIcon: const Icon(Icons.local_hospital),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _doctorNameController,
-              decoration: InputDecoration(
-                labelText: isFilipino ? 'Pangalan ng Doktor' : 'Doctor Name',
-                hintText: isFilipino ? 'e.g., Dr. Juan Cruz' : 'e.g., Dr. Juan Cruz',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                prefixIcon: const Icon(Icons.person),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return isFilipino
+                    ? 'Kailangan ang pangalan ng pasilidad'
+                    : 'Facility name is required';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _doctorNameController,
+            decoration: InputDecoration(
+              labelText: isFilipino ? 'Pangalan ng Doktor' : 'Doctor Name',
+              hintText:
+                  isFilipino ? 'e.g., Dr. Juan Cruz' : 'e.g., Dr. Juan Cruz',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return isFilipino
-                      ? 'Kailangan ang pangalan ng doktor'
-                      : 'Doctor name is required';
-                }
-                return null;
-              },
+              prefixIcon: const Icon(Icons.person),
             ),
-          ],
-        ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return isFilipino
+                    ? 'Kailangan ang pangalan ng doktor'
+                    : 'Doctor name is required';
+              }
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildPatientInfoCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isFilipino
-                  ? 'Impormasyon ng Pasyente (Opsyonal)'
-                  : 'Patient Information (Optional)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-                color: ColorConstant.bluedark,
-              ),
+    return StandardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isFilipino
+                ? 'Impormasyon ng Pasyente (Opsyonal)'
+                : 'Patient Information (Optional)',
+            style: JHTextStyles.h5.copyWith(
+              color: ColorConstant.bluedark,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _patientNameController,
-              decoration: InputDecoration(
-                labelText: isFilipino ? 'Pangalan ng Pasyente' : 'Patient Name',
-                hintText: isFilipino ? 'e.g., Juan Dela Cruz' : 'e.g., Juan Dela Cruz',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                prefixIcon: const Icon(Icons.person_outline),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _patientNameController,
+            decoration: InputDecoration(
+              labelText: isFilipino ? 'Pangalan ng Pasyente' : 'Patient Name',
+              hintText:
+                  isFilipino ? 'e.g., Juan Dela Cruz' : 'e.g., Juan Dela Cruz',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
+              prefixIcon: const Icon(Icons.person_outline),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _patientPhoneController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText:
-                    isFilipino ? 'Numero ng Telepono' : 'Phone Number',
-                hintText: '+639XXXXXXXXX or 09XXXXXXXXX',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                prefixIcon: const Icon(Icons.phone),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _patientPhoneController,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: isFilipino ? 'Numero ng Telepono' : 'Phone Number',
+              hintText: '+639XXXXXXXXX or 09XXXXXXXXX',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
+              prefixIcon: const Icon(Icons.phone),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildNotesCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isFilipino ? 'Karagdagang Tala' : 'Additional Notes',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
-                color: ColorConstant.bluedark,
+    return StandardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isFilipino ? 'Karagdagang Tala' : 'Additional Notes',
+            style: JHTextStyles.h5.copyWith(
+              color: ColorConstant.bluedark,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _notesController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: isFilipino
+                  ? 'Isulat ang anumang karagdagang impormasyon...'
+                  : 'Enter any additional information...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _notesController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: isFilipino
-                    ? 'Isulat ang anumang karagdagang impormasyon...'
-                    : 'Enter any additional information...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBookButton(bool isFilipino) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: _bookAppointment,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: ColorConstant.lightRed,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Text(
-          isFilipino ? 'Mag-book ng Appointment' : 'Book Appointment',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
-            color: Colors.white,
-          ),
-        ),
-      ),
+    return StandardButton.primary(
+      text: isFilipino ? 'Mag-book ng Appointment' : 'Book Appointment',
+      onPressed: _bookAppointment,
     );
   }
 
   Widget _buildValidationInfo(bool isFilipino) {
-    return Card(
-      elevation: 1,
-      color: Colors.blue[50],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  isFilipino ? 'Mga Patakaran sa Booking' : 'Booking Rules',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue[700],
-                  ),
+    return AccentCard(
+      accentColor: Colors.blue,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                isFilipino ? 'Mga Patakaran sa Booking' : 'Booking Rules',
+                style: JHTextStyles.bodySmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue[700],
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isFilipino
-                  ? '• Maaaring mag-book hanggang 90 araw\n'
-                      '• Maksimum 3 appointments kada araw\n'
-                      '• Minimum 2 oras pagitan ng appointments\n'
-                      '• Emergency: Ngayon o bukas lamang\n'
-                      '• Cancellation: 2 oras bago ang appointment'
-                  : '• Book up to 90 days in advance\n'
-                      '• Maximum 3 appointments per day\n'
-                      '• Minimum 2 hours between appointments\n'
-                      '• Emergency: Today or tomorrow only\n'
-                      '• Cancellation: 2 hours before appointment',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.blue[700],
-                height: 1.5,
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isFilipino
+                ? '• Maaaring mag-book hanggang 90 araw\n'
+                    '• Maksimum 3 appointments kada araw\n'
+                    '• Minimum 2 oras pagitan ng appointments\n'
+                    '• Emergency: Ngayon o bukas lamang\n'
+                    '• Cancellation: 2 oras bago ang appointment'
+                : '• Book up to 90 days in advance\n'
+                    '• Maximum 3 appointments per day\n'
+                    '• Minimum 2 hours between appointments\n'
+                    '• Emergency: Today or tomorrow only\n'
+                    '• Cancellation: 2 hours before appointment',
+            style: JHTextStyles.caption.copyWith(
+              color: Colors.blue[700],
+              height: 1.5,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1125,16 +1070,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   Widget _buildAssessmentSummaryCard(bool isFilipino) {
     if (_recommendation == null) return const SizedBox.shrink();
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return StandardCard(
+      padding: EdgeInsets.zero,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(15),
           gradient: LinearGradient(
             colors: [
-              _recommendation!.indicatorColor.withOpacity(0.1),
-              _recommendation!.indicatorColor.withOpacity(0.05),
+              _recommendation!.indicatorColor.withValues(alpha: 0.1),
+              _recommendation!.indicatorColor.withValues(alpha: 0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1155,10 +1099,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   const SizedBox(width: 8),
                   Text(
                     isFilipino ? 'Resulta ng Assessment' : 'Assessment Result',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Poppins',
+                    style: JHTextStyles.h5.copyWith(
                       color: ColorConstant.bluedark,
                     ),
                   ),
@@ -1171,7 +1112,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _recommendation!.indicatorColor.withOpacity(0.3),
+                    color:
+                        _recommendation!.indicatorColor.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -1181,15 +1123,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: _recommendation!.indicatorColor,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             _recommendation!.riskCategory.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 12,
+                            style: JHTextStyles.caption.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -1198,8 +1140,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                         const SizedBox(width: 8),
                         Text(
                           '${isFilipino ? "Marka" : "Score"}: ${_recommendation!.riskScore}/100',
-                          style: TextStyle(
-                            fontSize: 13,
+                          style: JHTextStyles.caption.copyWith(
                             fontWeight: FontWeight.w600,
                             color: ColorConstant.bluedark,
                           ),
@@ -1209,8 +1150,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                     const SizedBox(height: 8),
                     Text(
                       _recommendation!.actionTitle,
-                      style: TextStyle(
-                        fontSize: 13,
+                      style: JHTextStyles.caption.copyWith(
                         color: Colors.grey[800],
                         height: 1.4,
                       ),
@@ -1228,8 +1168,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                       isFilipino
                           ? 'Ang inyong assessment data ay ikakabit sa appointment na ito'
                           : 'Your assessment data will be attached to this appointment',
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: JHTextStyles.caption.copyWith(
                         color: Colors.grey[700],
                         fontStyle: FontStyle.italic,
                       ),

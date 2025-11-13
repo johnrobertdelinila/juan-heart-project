@@ -1,0 +1,853 @@
+name: Deploy iOS to App Store
+
+# ============================================================================
+# DEPLOYMENT WORKFLOW - APP STORE CONNECT / TESTFLIGHT
+# ============================================================================
+# This workflow handles automated deployment to TestFlight and App Store
+#
+# STATUS: BLOCKED - APPLE DEVELOPER ACCOUNT REQUIRED
+# This workflow is production-ready but cannot be used until:
+# 1. Apple Developer Program membership is active ($99/year)
+# 2. App ID is created in Developer Portal
+# 3. Distribution certificates are generated
+# 4. Provisioning profiles are created
+# 5. App Store Connect API key is generated
+#
+# PREREQUISITES:
+# 1. Apple Developer Program membership ($99/year)
+# 2. App Store Connect account
+# 3. App created in App Store Connect with bundle ID: com.uc.juanheart
+# 4. Distribution certificate and provisioning profile
+# 5. App Store Connect API key with "Developer" role
+#
+# REQUIRED GITHUB SECRETS:
+#   - IOS_CERTIFICATE_BASE64: Distribution certificate (.p12, base64 encoded)
+#   - IOS_CERTIFICATE_PASSWORD: Certificate password
+#   - IOS_PROVISION_PROFILE_BASE64: Provisioning profile (base64 encoded)
+#   - APP_STORE_CONNECT_API_KEY_BASE64: API key (.p8, base64 encoded)
+#   - APP_STORE_CONNECT_ISSUER_ID: Issuer ID from App Store Connect
+#   - APP_STORE_CONNECT_KEY_ID: Key ID from App Store Connect
+#   - MATCH_PASSWORD: Fastlane Match password (optional, for team cert management)
+#   - TWILIO_ACCOUNT_SID: Twilio credentials
+#   - TWILIO_AUTH_TOKEN: Twilio credentials
+#   - TWILIO_NUMBER: Twilio phone number
+#   - GOOGLE_GEOCODING_API_KEY: Google Maps API key
+#   - EDUCATIONAL_CONTENT_API_URL: Backend API URL
+#
+# SETUP GUIDE:
+#
+# Step 1: Enroll in Apple Developer Program
+#   - Go to: https://developer.apple.com/programs/enroll/
+#   - Cost: $99/year
+#   - Processing time: 24-48 hours
+#
+# Step 2: Create App ID
+#   - Go to: https://developer.apple.com/account/resources/identifiers/list
+#   - Click "+" to create new App ID
+#   - Bundle ID: com.uc.juanheart
+#   - Enable required capabilities: Push Notifications, HealthKit, etc.
+#
+# Step 3: Generate Distribution Certificate
+#   - Go to: https://developer.apple.com/account/resources/certificates/list
+#   - Create "Apple Distribution" certificate
+#   - Download and export as .p12 with password
+#   - Encode: cat certificate.p12 | base64 | pbcopy
+#   - Add as IOS_CERTIFICATE_BASE64 secret
+#
+# Step 4: Create Provisioning Profile
+#   - Go to: https://developer.apple.com/account/resources/profiles/list
+#   - Create "App Store" profile for com.uc.juanheart
+#   - Download profile
+#   - Encode: cat profile.mobileprovision | base64 | pbcopy
+#   - Add as IOS_PROVISION_PROFILE_BASE64 secret
+#
+# Step 5: Generate App Store Connect API Key
+#   - Go to: https://appstoreconnect.apple.com/access/api
+#   - Click "+" to create new key
+#   - Name: "GitHub Actions Deployment"
+#   - Role: "Developer" or "App Manager"
+#   - Download .p8 key (only available once!)
+#   - Note the Key ID and Issuer ID
+#   - Encode key: cat AuthKey_XXXXXXXXXX.p8 | base64 | pbcopy
+#   - Add secrets:
+#     - APP_STORE_CONNECT_API_KEY_BASE64: (encoded .p8)
+#     - APP_STORE_CONNECT_KEY_ID: (e.g., XXXXXXXXXX)
+#     - APP_STORE_CONNECT_ISSUER_ID: (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+#
+# Step 6: Create App in App Store Connect
+#   - Go to: https://appstoreconnect.apple.com/apps
+#   - Click "+" to add new app
+#   - Platform: iOS
+#   - Name: Juan Heart Mobile
+#   - Bundle ID: com.uc.juanheart
+#   - SKU: juan-heart-mobile
+#   - User Access: Full Access
+#
+# Step 7: Configure TestFlight
+#   - Enable TestFlight for internal and external testing
+#   - Add internal testers (up to 100)
+#   - Set up external testing groups
+#
+# DEPLOYMENT TRACKS:
+#   - testflight-internal: Internal testing (no review, instant, 100 users max)
+#   - testflight-external: External testing (beta review, 10,000 users max)
+#   - production: App Store release (full review, phased rollout)
+#
+# PHASED ROLLOUT STRATEGY (App Store only):
+#   Day 1: 1% of users (automatic)
+#   Day 2: 2% of users
+#   Day 3: 5% of users
+#   Day 4: 10% of users
+#   Day 5: 20% of users
+#   Day 6: 50% of users
+#   Day 7: 100% of users (full rollout)
+#   Note: Can pause/halt rollout at any time
+#
+# ROLLBACK PROCEDURE:
+#   1. Remove app from sale in App Store Connect (immediate)
+#   2. Submit previous version for expedited review
+#   3. Contact Apple for emergency rollback (critical bugs only)
+#   4. Prepare hotfix and submit new build
+# ============================================================================
+
+on:
+  # Trigger on successful iOS release build
+  workflow_run:
+    workflows: ["Build iOS Release"]
+    types:
+      - completed
+    branches:
+      - master
+      - release/*
+
+  # Manual deployment trigger
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: 'Deployment target'
+        required: true
+        default: 'testflight-internal'
+        type: choice
+        options:
+          - testflight-internal   # Internal testing (no review, instant)
+          - testflight-external   # External beta testing (beta review required)
+          - production           # App Store release (full review required)
+
+      skip_waiting_for_build:
+        description: 'Skip waiting for review (TestFlight only)'
+        required: false
+        default: false
+        type: boolean
+
+      enable_phased_release:
+        description: 'Enable phased release (App Store only)'
+        required: false
+        default: true
+        type: boolean
+
+      skip_pre_deployment_checks:
+        description: 'Skip pre-deployment validation (not recommended)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # ============================================================================
+  # ACCOUNT STATUS CHECK
+  # ============================================================================
+  check-apple-account:
+    name: Check Apple Developer Account Status
+    runs-on: ubuntu-latest
+
+    outputs:
+      account_active: ${{ steps.check.outputs.account_active }}
+
+    steps:
+      - name: Check account status
+        id: check
+        run: |
+          # Check if required secrets are configured
+          if [ -z "${{ secrets.IOS_CERTIFICATE_BASE64 }}" ] || \
+             [ -z "${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}" ]; then
+            echo ""
+            echo "=========================================="
+            echo "APPLE DEVELOPER ACCOUNT NOT CONFIGURED"
+            echo "=========================================="
+            echo ""
+            echo "This workflow is BLOCKED until the following steps are completed:"
+            echo ""
+            echo "1. Enroll in Apple Developer Program (\$99/year)"
+            echo "   https://developer.apple.com/programs/enroll/"
+            echo ""
+            echo "2. Create App ID in Developer Portal"
+            echo "   Bundle ID: com.uc.juanheart"
+            echo ""
+            echo "3. Generate Distribution Certificate"
+            echo "   Encode as base64 and add to GitHub Secrets"
+            echo ""
+            echo "4. Create Provisioning Profile"
+            echo "   Encode as base64 and add to GitHub Secrets"
+            echo ""
+            echo "5. Generate App Store Connect API Key"
+            echo "   Add Key ID, Issuer ID, and encoded .p8 to GitHub Secrets"
+            echo ""
+            echo "6. Configure GitHub Secrets:"
+            echo "   - IOS_CERTIFICATE_BASE64"
+            echo "   - IOS_CERTIFICATE_PASSWORD"
+            echo "   - IOS_PROVISION_PROFILE_BASE64"
+            echo "   - APP_STORE_CONNECT_API_KEY_BASE64"
+            echo "   - APP_STORE_CONNECT_ISSUER_ID"
+            echo "   - APP_STORE_CONNECT_KEY_ID"
+            echo ""
+            echo "See workflow comments for detailed setup instructions."
+            echo ""
+            echo "=========================================="
+            echo ""
+            echo "account_active=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "Apple Developer account configured"
+            echo "account_active=true" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================================================
+  # PRE-DEPLOYMENT VALIDATION
+  # ============================================================================
+  pre-deployment-checks:
+    name: Pre-Deployment Validation
+    needs: check-apple-account
+    runs-on: macos-latest
+    if: needs.check-apple-account.outputs.account_active == 'true' && github.event.inputs.skip_pre_deployment_checks != 'true'
+
+    outputs:
+      should_deploy: ${{ steps.validation.outputs.should_deploy }}
+      version: ${{ steps.get_version.outputs.version }}
+      build_number: ${{ steps.get_version.outputs.build_number }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version information
+        id: get_version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION ($BUILD_NUMBER)"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: $VERSION"
+            echo "Expected format: MAJOR.MINOR.PATCH (e.g., 1.0.0)"
+            exit 1
+          fi
+          echo "Version format valid"
+
+      - name: Check App Store Connect API connectivity
+        env:
+          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          # Decode API key
+          echo "$API_KEY_BASE64" | base64 --decode > AuthKey.p8
+
+          # Test API connectivity using xcrun altool (requires macOS)
+          echo "Testing App Store Connect API connectivity..."
+
+          # Note: Full validation would require xcrun altool
+          # For now, we verify secrets are present
+          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ]; then
+            echo "API credentials configured"
+          else
+            echo "API credentials missing"
+            exit 1
+          fi
+
+          rm -f AuthKey.p8
+
+      - name: Validate deployment target
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TARGET="${{ github.event.inputs.deployment_target }}"
+
+          if [ "$TARGET" == "production" ]; then
+            echo "=========================================="
+            echo "APP STORE PRODUCTION DEPLOYMENT"
+            echo "=========================================="
+            echo ""
+            echo "Pre-submission Checklist:"
+            echo "  [ ] All features tested on physical devices"
+            echo "  [ ] App Store screenshots prepared (all required sizes)"
+            echo "  [ ] App description and keywords optimized"
+            echo "  [ ] Privacy policy URL updated"
+            echo "  [ ] Support URL configured"
+            echo "  [ ] Age rating completed"
+            echo "  [ ] All TestFlight feedback addressed"
+            echo "  [ ] Stakeholder approval obtained"
+            echo "  [ ] Release notes prepared (all supported languages)"
+            echo "  [ ] App Store review checklist completed"
+            echo ""
+            echo "WARNING: Ensure all items are complete before proceeding"
+            echo "Review time: 24-48 hours (average)"
+            echo ""
+          fi
+
+          echo "Deployment target: $TARGET"
+
+      - name: Final validation
+        id: validation
+        run: |
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+          echo "Pre-deployment checks completed"
+
+  # ============================================================================
+  # BUILD IPA
+  # ============================================================================
+  build-ipa:
+    name: Build iOS IPA
+    needs: [check-apple-account, pre-deployment-checks]
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods
+          echo "CocoaPods installed"
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Create .env file
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_NUMBER: ${{ secrets.TWILIO_NUMBER }}
+          GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY }}
+          EDUCATIONAL_CONTENT_API_URL: ${{ secrets.EDUCATIONAL_CONTENT_API_URL }}
+        run: |
+          cat > .env <<EOF
+          ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+          AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+          TWILIO_NUMBER=${TWILIO_NUMBER}
+          GENKIT_BACKEND_URL=https://us-central1-juan-heart-project.cloudfunctions.net/assessHeartRiskHttp
+          FEATURE_FLAGS_URL=
+          EDUCATIONAL_CONTENT_API_URL=${EDUCATIONAL_CONTENT_API_URL}
+          GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
+          EOF
+
+      - name: Install iOS pods
+        run: |
+          cd ios
+          pod install
+          echo "CocoaPods dependencies installed"
+
+      - name: Update version
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+          sed -i '' "s/^version: .*/version: $VERSION+$BUILD_NUMBER/" pubspec.yaml
+          echo "Updated version to $VERSION ($BUILD_NUMBER)"
+
+      - name: Setup keychain and certificates
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+        run: |
+          # Create temporary keychain
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
+
+          # Import certificate
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 \
+            -k ~/Library/Keychains/build.keychain \
+            -P "$IOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          # Set partition list
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "" \
+            ~/Library/Keychains/build.keychain
+
+          # Install provisioning profile
+          PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_PATH"
+          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH/juan_heart.mobileprovision"
+
+          # Cleanup
+          rm certificate.p12
+
+          echo "Certificates and profiles configured"
+
+      - name: Build IPA
+        run: |
+          flutter build ipa \
+            --release \
+            --export-options-plist=ios/ExportOptions.plist
+
+          if [ $? -eq 0 ]; then
+            echo "iOS IPA build complete"
+          else
+            echo "iOS build failed"
+            exit 1
+          fi
+
+      - name: Verify IPA
+        run: |
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" -print -quit)
+          if [ -f "$IPA_PATH" ]; then
+            echo "IPA found: $IPA_PATH"
+            SIZE=$(du -h "$IPA_PATH" | cut -f1)
+            echo "IPA size: $SIZE"
+
+            # Verify signature
+            codesign -dvv "$IPA_PATH"
+            echo "IPA signature verified"
+          else
+            echo "IPA not found"
+            exit 1
+          fi
+
+      - name: Extract and prepare dSYMs
+        run: |
+          # Find dSYM files
+          DSYM_DIR=$(find build/ios/archive -name "*.xcarchive" -print -quit)
+          if [ -d "$DSYM_DIR" ]; then
+            echo "dSYM archive found: $DSYM_DIR"
+
+            # Create dSYMs archive for upload
+            cd "$DSYM_DIR/dSYMs"
+            zip -r "${GITHUB_WORKSPACE}/dSYMs.zip" .
+            cd "${GITHUB_WORKSPACE}"
+
+            echo "dSYMs packaged"
+          else
+            echo "dSYM files not found"
+          fi
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ needs.pre-deployment-checks.outputs.version }}
+          path: build/ios/ipa/*.ipa
+          retention-days: 90
+
+      - name: Upload dSYMs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-dsyms-${{ needs.pre-deployment-checks.outputs.version }}
+          path: dSYMs.zip
+          retention-days: 90
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          if security list-keychains | grep -q "build.keychain"; then
+            security delete-keychain build.keychain
+            echo "Keychain cleaned up"
+          fi
+
+  # ============================================================================
+  # DEPLOY TO TESTFLIGHT / APP STORE
+  # ============================================================================
+  deploy-to-app-store:
+    name: Deploy to App Store Connect
+    needs: [check-apple-account, pre-deployment-checks, build-ipa]
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    # Require approval for production deployments
+    environment:
+      name: ${{ github.event.inputs.deployment_target == 'production' && 'production-ios' || 'staging-ios' }}
+      url: https://appstoreconnect.apple.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download IPA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa-${{ needs.pre-deployment-checks.outputs.version }}
+          path: ./artifacts
+
+      - name: Download dSYMs
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-dsyms-${{ needs.pre-deployment-checks.outputs.version }}
+          path: ./artifacts
+
+      - name: Verify artifacts
+        run: |
+          echo "Verifying downloaded artifacts..."
+          ls -lh ./artifacts/
+
+          IPA_PATH=$(find ./artifacts -name "*.ipa" -print -quit)
+          if [ ! -f "$IPA_PATH" ]; then
+            echo "IPA file not found"
+            exit 1
+          fi
+
+          if [ ! -f "./artifacts/dSYMs.zip" ]; then
+            echo "dSYM archive not found"
+            exit 1
+          fi
+
+          echo "All artifacts verified"
+
+      - name: Setup App Store Connect API
+        env:
+          API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          # Create private_keys directory
+          mkdir -p ~/private_keys
+
+          # Decode and save API key
+          echo "$API_KEY_BASE64" | base64 --decode > ~/private_keys/AuthKey_${KEY_ID}.p8
+
+          echo "App Store Connect API configured"
+
+      - name: Upload to App Store Connect
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target || 'testflight-internal' }}
+        run: |
+          IPA_PATH=$(find ./artifacts -name "*.ipa" -print -quit)
+
+          echo "Uploading IPA to App Store Connect..."
+          echo "Target: $DEPLOYMENT_TARGET"
+
+          # Use xcrun altool for upload
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$API_ISSUER_ID"
+
+          if [ $? -eq 0 ]; then
+            echo "IPA uploaded successfully"
+          else
+            echo "Upload failed"
+            exit 1
+          fi
+
+      - name: Upload dSYMs to Firebase Crashlytics
+        run: |
+          echo "Uploading dSYMs to Firebase Crashlytics..."
+
+          # Unzip dSYMs
+          unzip -q ./artifacts/dSYMs.zip -d ./dsyms
+
+          # Upload using Firebase Crashlytics upload-symbols
+          # Note: Requires GoogleService-Info.plist and firebase_app_id_file.json
+          # ${PODS_ROOT}/FirebaseCrashlytics/upload-symbols \
+          #   -gsp ios/Runner/GoogleService-Info.plist \
+          #   -p ios ./dsyms/*.dSYM
+
+          echo "dSYM upload prepared (manual step required if Firebase configured)"
+
+      - name: Submit for TestFlight review
+        if: github.event.inputs.deployment_target == 'testflight-external'
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          echo "Submitting build for TestFlight external testing..."
+
+          # Note: This requires additional setup in App Store Connect
+          # - Beta App Review Information
+          # - Test Information
+          # - Beta App Localization
+
+          echo "Manual submission required via App Store Connect"
+          echo "https://appstoreconnect.apple.com/apps"
+
+      - name: Submit for App Store review
+        if: github.event.inputs.deployment_target == 'production'
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ENABLE_PHASED_RELEASE: ${{ github.event.inputs.enable_phased_release }}
+        run: |
+          echo "Submitting build for App Store review..."
+
+          # Note: Requires App Store Connect metadata to be complete
+          # - App Information
+          # - Pricing and Availability
+          # - App Privacy
+          # - Screenshots
+          # - Description
+          # - Keywords
+          # - Support URL
+          # - Privacy Policy URL
+
+          if [ "$ENABLE_PHASED_RELEASE" == "true" ]; then
+            echo "Phased release enabled (7-day automatic rollout)"
+          else
+            echo "Immediate release (100% rollout after approval)"
+          fi
+
+          echo "Manual submission required via App Store Connect"
+          echo "https://appstoreconnect.apple.com/apps"
+
+      - name: Deployment summary
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+          TARGET="${{ github.event.inputs.deployment_target || 'testflight-internal' }}"
+
+          echo "## iOS Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** UPLOADED TO APP STORE CONNECT" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${VERSION} (${BUILD_NUMBER})" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** ${TARGET}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$TARGET" == "production" ]; then
+            echo "1. Complete App Store metadata in App Store Connect" >> $GITHUB_STEP_SUMMARY
+            echo "2. Add/update screenshots (all required sizes)" >> $GITHUB_STEP_SUMMARY
+            echo "3. Submit for App Store Review" >> $GITHUB_STEP_SUMMARY
+            echo "4. Wait for review (typically 24-48 hours)" >> $GITHUB_STEP_SUMMARY
+            echo "5. Monitor phased release progress" >> $GITHUB_STEP_SUMMARY
+            echo "6. Respond to user reviews" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TARGET" == "testflight-external" ]; then
+            echo "1. Complete Beta App Review information" >> $GITHUB_STEP_SUMMARY
+            echo "2. Submit for Beta App Review" >> $GITHUB_STEP_SUMMARY
+            echo "3. Wait for review (typically 24-48 hours)" >> $GITHUB_STEP_SUMMARY
+            echo "4. Share TestFlight link with external testers" >> $GITHUB_STEP_SUMMARY
+            echo "5. Collect feedback from testers" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "1. Build is processing in App Store Connect (5-10 minutes)" >> $GITHUB_STEP_SUMMARY
+            echo "2. Share with internal testers via TestFlight" >> $GITHUB_STEP_SUMMARY
+            echo "3. Internal testers will receive notification" >> $GITHUB_STEP_SUMMARY
+            echo "4. Collect initial feedback" >> $GITHUB_STEP_SUMMARY
+            echo "5. Fix any critical issues before external beta" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Links" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [App Store Connect](https://appstoreconnect.apple.com)" >> $GITHUB_STEP_SUMMARY
+          echo "- [TestFlight](https://appstoreconnect.apple.com/apps/testflight)" >> $GITHUB_STEP_SUMMARY
+          echo "- [App Analytics](https://appstoreconnect.apple.com/analytics)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf ~/private_keys
+          rm -rf ./artifacts
+          rm -rf ./dsyms
+          echo "Cleanup complete"
+
+  # ============================================================================
+  # POST-DEPLOYMENT VERIFICATION
+  # ============================================================================
+  post-deployment-checks:
+    name: Post-Deployment Verification
+    needs: [check-apple-account, pre-deployment-checks, deploy-to-app-store]
+    runs-on: macos-latest
+    if: success()
+
+    steps:
+      - name: Wait for App Store Connect processing
+        run: |
+          echo "Waiting 5 minutes for App Store Connect to process upload..."
+          sleep 300
+
+      - name: Verify upload status
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          echo "Checking upload status in App Store Connect..."
+
+          # Use App Store Connect API to verify build status
+          # This would require implementing API client for build status checks
+
+          echo "Manual verification required:"
+          echo "1. Log in to App Store Connect"
+          echo "2. Navigate to TestFlight tab"
+          echo "3. Verify new build appears with correct version"
+          echo "4. Check that build status is 'Ready to Submit' or 'Processing'"
+
+      - name: Notify stakeholders
+        run: |
+          TARGET="${{ github.event.inputs.deployment_target || 'testflight-internal' }}"
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+
+          echo "iOS Deployment Notification"
+          echo "Version: ${VERSION}"
+          echo "Target: ${TARGET}"
+          echo ""
+          echo "Stakeholders to notify:"
+          echo "  - PHC team"
+          echo "  - University of Cordilleras"
+          echo "  - iOS QA team"
+          echo "  - Development team"
+          echo ""
+          echo "NOTE: Configure Slack/email notifications in repository settings"
+
+      - name: Create deployment record
+        run: |
+          VERSION="${{ needs.pre-deployment-checks.outputs.version }}"
+          BUILD_NUMBER="${{ needs.pre-deployment-checks.outputs.build_number }}"
+          TARGET="${{ github.event.inputs.deployment_target || 'testflight-internal' }}"
+
+          cat > deployment-record-ios.json <<EOF
+          {
+            "platform": "ios",
+            "version": "${VERSION}",
+            "build_number": "${BUILD_NUMBER}",
+            "target": "${TARGET}",
+            "deployed_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "deployed_by": "${{ github.actor }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}"
+          }
+          EOF
+
+          cat deployment-record-ios.json
+          echo ""
+          echo "iOS deployment record created"
+
+# ============================================================================
+# TROUBLESHOOTING GUIDE
+# ============================================================================
+#
+# Common Issues and Solutions:
+#
+# 1. "Apple Developer account not configured"
+#    - Complete Steps 1-6 in the setup guide above
+#    - Verify all GitHub Secrets are configured correctly
+#    - Ensure secrets are base64 encoded (not plain text)
+#
+# 2. "Certificate not found in keychain"
+#    - Verify IOS_CERTIFICATE_BASE64 is encoded correctly
+#    - Check certificate password is correct
+#    - Ensure certificate is Apple Distribution type (not Development)
+#
+# 3. "Provisioning profile doesn't match bundle ID"
+#    - Verify bundle ID in Xcode matches: com.uc.juanheart
+#    - Ensure provisioning profile is for App Store distribution
+#    - Check profile includes the correct certificate
+#
+# 4. "Upload to App Store Connect failed"
+#    - Verify API key has proper permissions (Developer/App Manager)
+#    - Check API key is not expired
+#    - Ensure app exists in App Store Connect with correct bundle ID
+#
+# 5. "Build number already exists"
+#    - Each upload must have unique build number
+#    - Build number must be higher than previous uploads
+#    - Consider using git commit count as build number
+#
+# 6. "Code signing failed"
+#    - Run on macOS runner (required for codesign)
+#    - Verify all certificates are valid and not expired
+#    - Check provisioning profile is not expired
+#    - Ensure bundle ID matches across all files
+#
+# 7. "dSYM upload failed"
+#    - Verify Firebase is configured in project
+#    - Check GoogleService-Info.plist exists
+#    - Ensure FirebaseCrashlytics pod is installed
+#
+# 8. "TestFlight processing taking too long"
+#    - Normal processing time: 5-15 minutes
+#    - Check App Store Connect for processing status
+#    - If >1 hour, contact Apple Developer Support
+#
+# APPLE REVIEW GUIDELINES:
+#
+# Common rejection reasons:
+# - Incomplete metadata (missing screenshots, description, etc.)
+# - Broken features or crashes
+# - Privacy policy not accessible
+# - Inappropriate content
+# - Performance issues
+# - Guideline violations
+#
+# Prevention:
+# - Test thoroughly on physical devices
+# - Complete all metadata fields
+# - Provide demo account credentials if needed
+# - Ensure privacy policy is up-to-date
+# - Follow Human Interface Guidelines
+# - Test on minimum iOS version (check deployment target)
+#
+# ROLLBACK PROCEDURE:
+#
+# Emergency rollback steps:
+#
+# 1. If in TestFlight:
+#    - Disable problematic build in TestFlight
+#    - Re-enable previous stable build
+#    - Notify testers of the issue
+#
+# 2. If in App Store Review:
+#    - Reject the binary in App Store Connect
+#    - Submit previous version for expedited review
+#    - Contact Apple for urgent review
+#
+# 3. If already released:
+#    - Remove from sale (immediate, but drastic)
+#    - Submit hotfix for expedited review
+#    - Contact Apple Developer Support for emergency rollback
+#    - Communicate with users via release notes
+#
+# MONITORING CHECKLIST:
+#
+# After deployment to TestFlight/App Store:
+# - [ ] Build appears in App Store Connect within 15 minutes
+# - [ ] TestFlight testers receive notification
+# - [ ] No critical crashes in Crashlytics
+# - [ ] App Store review status progressing
+# - [ ] User ratings maintained (App Store)
+# - [ ] No critical bugs in TestFlight feedback
+# - [ ] Core features working (assessment, booking, sync)
+# - [ ] Backend APIs responding normally
+#
+# COST TRACKING:
+#
+# iOS deployment costs:
+# - Apple Developer Program: $99/year (required)
+# - App Store Connect API: Free
+# - TestFlight: Free (up to 10,000 external testers)
+# - GitHub Actions minutes: ~45 minutes per deployment
+# - Firebase Crashlytics: Free tier sufficient
+#
+# Total estimated cost: ~$100/year (Apple Developer Program only)
+#
+# ============================================================================

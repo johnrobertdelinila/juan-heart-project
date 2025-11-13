@@ -4,6 +4,7 @@ import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/appointment_model.dart';
 import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/services/appointment_service.dart';
+import 'package:juan_heart/services/appointment_history_pdf_service.dart';
 import 'package:juan_heart/services/sync_queue_service.dart';
 import 'package:juan_heart/presentation/pages/home/reschedule_appointment_dialog.dart';
 import 'package:juan_heart/presentation/pages/teleconsult/pre_consultation_screen.dart';
@@ -11,6 +12,7 @@ import 'package:juan_heart/presentation/pages/teleconsult/waiting_room_screen.da
 import 'package:juan_heart/presentation/widgets/standard_card.dart';
 import 'package:juan_heart/presentation/widgets/standard_button.dart';
 import 'package:juan_heart/presentation/pages/home/home.dart';
+import 'package:juan_heart/presentation/widgets/date_range_selector.dart';
 import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:intl/intl.dart';
@@ -51,8 +53,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     } catch (e) {
       print('Error loading appointments: $e');
       setState(() => _isLoading = false);
-    }
-  }
+}
+}
 
   List<Appointment> get _filteredAppointments {
     switch (_filterStatus) {
@@ -84,7 +86,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         actions: [
           IconButton(
             onPressed: () {
-              // TODO: Show appointment history or settings
+              Get.to(() => const AppointmentHistoryView());
             },
             icon: Icon(
               Icons.history,
@@ -876,19 +878,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     switch (appointment.syncStatus) {
       case 'synced':
         icon = Icons.cloud_done;
-        backgroundColor = const JHColors.success; // Green
+        backgroundColor = JHColors.success; // Green
         textColor = Colors.white;
         label = isFilipino ? 'Naka-sync' : 'Synced';
         break;
       case 'pending':
         icon = Icons.cloud_upload;
-        backgroundColor = const JHColors.warning; // Orange
+        backgroundColor = JHColors.warning; // Orange
         textColor = Colors.white;
         label = isFilipino ? 'Nag-sync' : 'Syncing';
         break;
       case 'failed':
         icon = Icons.cloud_off;
-        backgroundColor = const JHColors.danger; // Red
+        backgroundColor = JHColors.danger; // Red
         textColor = Colors.white;
         label = isFilipino ? 'Hindi nag-sync' : 'Failed';
         break;
@@ -1055,5 +1057,449 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
     // Navigate to waiting room
     Get.to(() => WaitingRoomScreen(appointment: appointment));
+  }
+}
+
+class AppointmentHistoryView extends StatefulWidget {
+  const AppointmentHistoryView({super.key});
+
+  @override
+  State<AppointmentHistoryView> createState() => _AppointmentHistoryViewState();
+}
+
+class _AppointmentHistoryViewState extends State<AppointmentHistoryView> {
+  bool _isLoading = true;
+  List<Appointment> _appointments = [];
+  DateRangeOption _selectedRange = DateRangeOption.last30Days;
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
+  String? _selectedFacility;
+  AppointmentStatus? _selectedStatus;
+  int _page = 1;
+  static const int _pageSize = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final data = await AppointmentService.getAppointments();
+      setState(() {
+        _appointments = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      Get.snackbar('Error', 'Failed to load history: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          Get.locale?.languageCode == 'fil'
+              ? 'Kasaysayan ng Appointment'
+              : 'Appointment History',
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _exportHistory,
+          ),
+        ],
+      ),
+      body: _isLoading ? _buildLoading() : _buildBody(),
+    );
+  }
+
+  Widget _buildLoading() => const Center(child: CircularProgressIndicator());
+
+  Widget _buildBody() {
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadHistory();
+        _page = 1;
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _buildFiltersSection(),
+          const SizedBox(height: 16),
+          _buildHistoryList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFiltersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DateRangeSelector(
+          selectedRange: _selectedRange,
+          onRangeSelected: (option) async {
+            if (option == DateRangeOption.custom) {
+              final range = await _pickCustomRange();
+              if (range == null) return;
+              setState(() {
+                _selectedRange = option;
+                _customStartDate = range.start;
+                _customEndDate = range.end;
+                _page = 1;
+              });
+            } else {
+              setState(() {
+                _selectedRange = option;
+                _customStartDate = null;
+                _customEndDate = null;
+                _page = 1;
+              });
+            }
+          },
+          customStartDate: _customStartDate,
+          customEndDate: _customEndDate,
+        ),
+        const SizedBox(height: 12),
+        _buildFacilityDropdown(),
+        const SizedBox(height: 12),
+        _buildStatusChips(),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _resetFilters,
+            child: Text(
+              Get.locale?.languageCode == 'fil' ? 'I-reset' : 'Reset',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFacilityDropdown() {
+    final facilities = _facilityOptions();
+    return DropdownButtonFormField<String>(
+      value: _selectedFacility,
+      decoration: InputDecoration(
+        labelText:
+            Get.locale?.languageCode == 'fil' ? 'Pasilidad' : 'Facility',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      items: [
+        DropdownMenuItem(
+          value: null,
+          child: Text(Get.locale?.languageCode == 'fil' ? 'Lahat' : 'All'),
+        ),
+        ...facilities.map(
+          (facility) => DropdownMenuItem(
+            value: facility,
+            child: Text(facility),
+          ),
+        ),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _selectedFacility = value;
+          _page = 1;
+        });
+      },
+    );
+  }
+
+  Widget _buildStatusChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          label: Text(
+            Get.locale?.languageCode == 'fil' ? 'Lahat' : 'All',
+          ),
+          selected: _selectedStatus == null,
+          onSelected: (_) {
+            setState(() {
+              _selectedStatus = null;
+              _page = 1;
+            });
+          },
+        ),
+        ...AppointmentStatus.values.map(
+          (status) => ChoiceChip(
+            label: Text(status.name.toUpperCase()),
+            selected: _selectedStatus == status,
+            onSelected: (_) {
+              setState(() {
+                _selectedStatus = status;
+                _page = 1;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHistoryList() {
+    final filtered = _filteredAppointments();
+    final visible = _visibleAppointments(filtered);
+
+    if (filtered.isEmpty) {
+      return _buildEmptyHistory();
+    }
+
+    return Column(
+      children: [
+        ...visible.map(_buildHistoryCard),
+        if (visible.length < filtered.length)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: StandardButton.secondary(
+              text: Get.locale?.languageCode == 'fil'
+                  ? 'Mag-load ng Mas Marami'
+                  : 'Load More',
+              onPressed: () => setState(() => _page += 1),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildHistoryCard(Appointment appointment) {
+    return StandardCard(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatusRow(appointment),
+          const SizedBox(height: 12),
+          Text(
+            appointment.facilityName,
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            appointment.doctorName,
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.gentleGray,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildMetaRow(appointment),
+          if (appointment.notes?.isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ColorConstant.softWhite,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  appointment.notes!,
+                  style: JHTextStyles.caption.copyWith(
+                    color: ColorConstant.gentleGray,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusRow(Appointment appointment) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: appointment.getStatusColor().withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            appointment.getStatusText(Get.locale?.languageCode ?? 'en'),
+            style: JHTextStyles.caption.copyWith(
+              color: appointment.getStatusColor(),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          DateFormat('MMM dd, yyyy').format(appointment.appointmentDate),
+          style: JHTextStyles.bodySmall.copyWith(
+            color: ColorConstant.gentleGray,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetaRow(Appointment appointment) {
+    return Row(
+      children: [
+        Icon(Icons.access_time, size: 16, color: ColorConstant.trustBlue),
+        const SizedBox(width: 6),
+        Text(
+          appointment.appointmentTime,
+          style: JHTextStyles.bodySmall.copyWith(
+            color: ColorConstant.bluedark,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Icon(Icons.local_hospital, size: 16, color: ColorConstant.trustBlue),
+        const SizedBox(width: 6),
+        Text(
+          appointment.getTypeText(Get.locale?.languageCode ?? 'en'),
+          style: JHTextStyles.bodySmall.copyWith(
+            color: ColorConstant.bluedark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyHistory() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: ColorConstant.softWhite,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.history, size: 48, color: ColorConstant.gentleGray),
+          const SizedBox(height: 12),
+          Text(
+            Get.locale?.languageCode == 'fil'
+                ? 'Wala pang nakaraang appointments.'
+                : 'No past appointments yet.',
+            style: JHTextStyles.bodyBase.copyWith(
+              color: ColorConstant.gentleGray,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Appointment> _filteredAppointments() {
+    final now = DateTime.now();
+    final range = _activeRange();
+
+    return _appointments.where((appointment) {
+      final past = appointment.appointmentDate.isBefore(now) ||
+          appointment.status == AppointmentStatus.completed ||
+          appointment.status == AppointmentStatus.cancelled ||
+          appointment.status == AppointmentStatus.noShow;
+      if (!past) return false;
+
+      if (range != null) {
+        final date = appointment.appointmentDate;
+        if (date.isBefore(range.start) || date.isAfter(range.end)) {
+          return false;
+        }
+      }
+
+      if (_selectedFacility != null &&
+          appointment.facilityName != _selectedFacility) {
+        return false;
+      }
+
+      if (_selectedStatus != null && appointment.status != _selectedStatus) {
+        return false;
+      }
+
+      return true;
+    }).toList()
+      ..sort((a, b) => b.appointmentDate.compareTo(a.appointmentDate));
+  }
+
+  List<Appointment> _visibleAppointments(List<Appointment> filtered) {
+    final limit = _page * _pageSize;
+    if (filtered.length <= limit) return filtered;
+    return filtered.sublist(0, limit);
+  }
+
+  DateTimeRange? _activeRange() {
+    final now = DateTime.now();
+    switch (_selectedRange) {
+      case DateRangeOption.last7Days:
+        return DateTimeRange(
+          start: now.subtract(const Duration(days: 7)),
+          end: now,
+        );
+      case DateRangeOption.last30Days:
+        return DateTimeRange(
+          start: now.subtract(const Duration(days: 30)),
+          end: now,
+        );
+      case DateRangeOption.last90Days:
+        return DateTimeRange(
+          start: now.subtract(const Duration(days: 90)),
+          end: now,
+        );
+      case DateRangeOption.lastYear:
+        return DateTimeRange(
+          start: now.subtract(const Duration(days: 365)),
+          end: now,
+        );
+      case DateRangeOption.custom:
+        if (_customStartDate != null && _customEndDate != null) {
+          return DateTimeRange(
+            start: _customStartDate!,
+            end: _customEndDate!,
+          );
+        }
+        return null;
+      case DateRangeOption.allTime:
+        return null;
+    }
+  }
+
+  List<String> _facilityOptions() {
+    final set = _appointments.map((apt) => apt.facilityName).toSet().toList()
+      ..sort();
+    return set;
+  }
+
+  Future<DateTimeRange?> _pickCustomRange() async {
+    return await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      currentDate: DateTime.now(),
+    );
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedRange = DateRangeOption.last30Days;
+      _customStartDate = null;
+      _customEndDate = null;
+      _selectedFacility = null;
+      _selectedStatus = null;
+      _page = 1;
+    });
+  }
+
+  Future<void> _exportHistory() async {
+    final data = _filteredAppointments();
+    await AppointmentHistoryPdfService.export(
+      context: context,
+      appointments: data,
+      dateRange: _activeRange(),
+      facility: _selectedFacility,
+      status: _selectedStatus,
+    );
   }
 }

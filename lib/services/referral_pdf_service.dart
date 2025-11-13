@@ -7,12 +7,10 @@
 /// Part of the Referral & Care Navigation System
 
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart';
 import 'package:juan_heart/models/referral_data.dart';
 import 'package:intl/intl.dart';
 
@@ -277,9 +275,9 @@ class ReferralPDFService {
                         horizontal: 12,
                         vertical: 6,
                       ),
-                      decoration: pw.BoxDecoration(
+                      decoration: const pw.BoxDecoration(
                         color: PdfColors.white,
-                        borderRadius: const pw.BorderRadius.all(
+                        borderRadius: pw.BorderRadius.all(
                           pw.Radius.circular(12),
                         ),
                       ),

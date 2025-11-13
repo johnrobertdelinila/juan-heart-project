@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'medical_triage_assessment_service.dart';
+import 'performance_service.dart';
 
 /// Service for AI-powered heart disease risk assessment using Genkit + Gemini Flash
 ///
@@ -35,7 +37,7 @@ class GenkitAssessmentService {
   Future<Map<String, dynamic>> assessHeartDiseaseRisk(
     Map<String, dynamic> userInput,
   ) async {
-    print('🤖 GENKIT SERVICE: Starting AI assessment...');
+    debugPrint('🤖 GENKIT SERVICE: Starting AI assessment...');
 
     try {
       // Step 1: Check internet connectivity
@@ -53,11 +55,11 @@ class GenkitAssessmentService {
         userInput,
       );
 
-      print('✅ GENKIT SERVICE: AI assessment complete');
+      debugPrint('✅ GENKIT SERVICE: AI assessment complete');
       return validated;
 
     } catch (e) {
-      print('❌ GENKIT SERVICE: Error - $e');
+      debugPrint('❌ GENKIT SERVICE: Error - $e');
       rethrow; // Let AssessmentStrategy handle fallback
     }
   }
@@ -65,17 +67,17 @@ class GenkitAssessmentService {
   /// Check internet connectivity by pinging a reliable endpoint
   Future<bool> _checkConnectivity() async {
     try {
-      print('🌐 Checking internet connectivity...');
+      debugPrint('🌐 Checking internet connectivity...');
       final response = await http
           .get(Uri.parse('https://www.google.com'))
           .timeout(const Duration(seconds: 3));
 
       final connected = response.statusCode == 200;
-      print(connected ? '✅ Internet available' : '❌ No internet');
+      debugPrint(connected ? '✅ Internet available' : '❌ No internet');
       return connected;
 
     } catch (e) {
-      print('❌ Connectivity check failed: $e');
+      debugPrint('❌ Connectivity check failed: $e');
       return false;
     }
   }
@@ -84,7 +86,12 @@ class GenkitAssessmentService {
   Future<Map<String, dynamic>> _callGenkitBackend(
     Map<String, dynamic> userInput,
   ) async {
-    print('📡 Calling Genkit backend: $_backendUrl');
+    debugPrint('📡 Calling Genkit backend: $_backendUrl');
+
+    // Start Genkit API call trace
+    final apiTrace = await PerformanceService.instance.startGenkitApiTrace();
+    bool success = false;
+    int responseSize = 0;
 
     try {
       // Prepare request body (Genkit expects data wrapped in "data" field)
@@ -104,6 +111,9 @@ class GenkitAssessmentService {
         onTimeout: () => throw Exception('Genkit API timeout (>10s)'),
       );
 
+      // Track response size
+      responseSize = response.bodyBytes.length;
+
       // Handle response
       if (response.statusCode != 200) {
         throw Exception(
@@ -120,11 +130,28 @@ class GenkitAssessmentService {
         throw Exception('Invalid response format from Genkit backend');
       }
 
-      print('✅ Genkit backend response received');
+      success = true;
+      debugPrint('✅ Genkit backend response received');
+
+      // Stop trace with success metrics
+      await PerformanceService.instance.stopGenkitApiTrace(
+        apiTrace,
+        success: success,
+        responseSize: responseSize,
+      );
+
       return result;
 
     } catch (e) {
-      print('❌ Genkit backend call failed: $e');
+      debugPrint('❌ Genkit backend call failed: $e');
+
+      // Stop trace with failure metrics
+      await PerformanceService.instance.stopGenkitApiTrace(
+        apiTrace,
+        success: false,
+        responseSize: responseSize,
+      );
+
       rethrow;
     }
   }
@@ -137,7 +164,7 @@ class GenkitAssessmentService {
     Map<String, dynamic> aiResult,
     Map<String, dynamic> userInput,
   ) async {
-    print('🔍 Validating AI result against rule-based system...');
+    debugPrint('🔍 Validating AI result against rule-based system...');
 
     try {
       // Run rule-based assessment
@@ -151,7 +178,7 @@ class GenkitAssessmentService {
       // Calculate difference
       final scoreDifference = (aiScore - ruleBasedScore).abs();
 
-      print('📊 AI Score: $aiScore | Rule-Based Score: $ruleBasedScore | Difference: $scoreDifference');
+      debugPrint('📊 AI Score: $aiScore | Rule-Based Score: $ruleBasedScore | Difference: $scoreDifference');
 
       // Add validation metadata
       aiResult['ruleBasedScore'] = ruleBasedScore;
@@ -162,7 +189,7 @@ class GenkitAssessmentService {
 
       // Add warning if discrepancy is large
       if (scoreDifference > _maxScoreDifference) {
-        print('⚠️ Large discrepancy detected! Difference: $scoreDifference points');
+        debugPrint('⚠️ Large discrepancy detected! Difference: $scoreDifference points');
 
         aiResult['hasDiscrepancy'] = true;
         aiResult['discrepancyWarning'] =
@@ -174,11 +201,22 @@ class GenkitAssessmentService {
       // Add full rule-based result for comparison view
       aiResult['ruleBasedFullResult'] = ruleBasedResult;
 
-      print('✅ Validation complete');
+      // Add missing UI fields for compatibility with existing views
+      // Calculate heatmap position from AI scores (0-based index for 5x5 grid)
+      aiResult['heatmapPosition'] = {
+        'x': (aiResult['likelihoodScore'] as int) - 1,
+        'y': (aiResult['impactScore'] as int) - 1,
+      };
+
+      // Use rule-based color code and safety message for consistency
+      aiResult['colorCode'] = ruleBasedResult['colorCode'];
+      aiResult['safetyMessage'] = ruleBasedResult['safetyMessage'];
+
+      debugPrint('✅ Validation complete');
       return aiResult;
 
     } catch (e) {
-      print('❌ Validation failed: $e');
+      debugPrint('❌ Validation failed: $e');
       // Still return AI result even if validation fails
       aiResult['validated'] = false;
       aiResult['validationError'] = e.toString();
@@ -188,94 +226,103 @@ class GenkitAssessmentService {
 
   /// Sanitize user input to ensure it matches Genkit backend schema
   ///
-  /// This removes any extra fields and ensures proper data types.
+  /// This removes any extra fields, excludes empty values, and ensures proper data types.
   Map<String, dynamic> _sanitizeInput(Map<String, dynamic> userInput) {
     // Create clean copy with only expected fields
     final sanitized = <String, dynamic>{};
 
-    // Demographics (required)
-    if (userInput.containsKey('age')) sanitized['age'] = userInput['age'];
-    if (userInput.containsKey('sex')) sanitized['sex'] = userInput['sex'];
+    // Helper to check if value is not empty
+    bool isNotEmpty(dynamic value) {
+      if (value == null) return false;
+      if (value is String) return value.trim().isNotEmpty;
+      return true; // booleans and numbers are always included
+    }
 
-    // Symptoms (optional)
-    if (userInput.containsKey('chestPainType')) {
+    // Helper to parse integer values
+    int? parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is String && value.trim().isNotEmpty) {
+        return int.tryParse(value.trim());
+      }
+      return null;
+    }
+
+    // Helper to parse double values
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String && value.trim().isNotEmpty) {
+        return double.tryParse(value.trim());
+      }
+      return null;
+    }
+
+    // Demographics (required)
+    final age = parseInt(userInput['age']);
+    if (age != null) sanitized['age'] = age;
+
+    if (isNotEmpty(userInput['sex'])) {
+      sanitized['sex'] = userInput['sex'];
+    }
+
+    // Symptoms - String fields (only include if not empty)
+    if (isNotEmpty(userInput['chestPainType'])) {
       sanitized['chestPainType'] = userInput['chestPainType'];
     }
-    if (userInput.containsKey('chestPainDuration')) {
-      sanitized['chestPainDuration'] = userInput['chestPainDuration'];
-    }
-    if (userInput.containsKey('chestPainRadiation')) {
-      sanitized['chestPainRadiation'] = userInput['chestPainRadiation'];
-    }
-    if (userInput.containsKey('chestPainExertional')) {
-      sanitized['chestPainExertional'] = userInput['chestPainExertional'];
-    }
-    if (userInput.containsKey('shortnessOfBreath')) {
+    if (isNotEmpty(userInput['shortnessOfBreath'])) {
       sanitized['shortnessOfBreath'] = userInput['shortnessOfBreath'];
     }
-    if (userInput.containsKey('palpitations')) {
-      sanitized['palpitations'] = userInput['palpitations'];
-    }
-    if (userInput.containsKey('palpitationType')) {
+    if (isNotEmpty(userInput['palpitationType'])) {
       sanitized['palpitationType'] = userInput['palpitationType'];
     }
-    if (userInput.containsKey('syncope')) {
-      sanitized['syncope'] = userInput['syncope'];
-    }
-    if (userInput.containsKey('fainting')) {
-      sanitized['fainting'] = userInput['fainting'];
-    }
-    if (userInput.containsKey('neurologicalSymptoms')) {
-      sanitized['neurologicalSymptoms'] = userInput['neurologicalSymptoms'];
-    }
-    if (userInput.containsKey('legSwelling')) {
-      sanitized['legSwelling'] = userInput['legSwelling'];
+
+    // Symptoms - Numeric fields (only include if not empty)
+    final chestPainDuration = parseInt(userInput['chestPainDuration']);
+    if (chestPainDuration != null) {
+      sanitized['chestPainDuration'] = chestPainDuration;
     }
 
-    // Vital Signs (optional)
-    if (userInput.containsKey('systolicBP')) {
-      sanitized['systolicBP'] = userInput['systolicBP'];
-    }
-    if (userInput.containsKey('diastolicBP')) {
-      sanitized['diastolicBP'] = userInput['diastolicBP'];
-    }
-    if (userInput.containsKey('heartRate')) {
-      sanitized['heartRate'] = userInput['heartRate'];
-    }
-    if (userInput.containsKey('oxygenSaturation')) {
-      sanitized['oxygenSaturation'] = userInput['oxygenSaturation'];
-    }
-    if (userInput.containsKey('temperature')) {
-      sanitized['temperature'] = userInput['temperature'];
-    }
+    // Symptoms - Boolean fields (always include)
+    sanitized['chestPainRadiation'] = userInput['chestPainRadiation'] == true;
+    sanitized['chestPainExertional'] = userInput['chestPainExertional'] == true;
+    sanitized['palpitations'] = userInput['palpitations'] == true;
+    sanitized['syncope'] = userInput['syncope'] == true;
+    sanitized['fainting'] = userInput['fainting'] == true;
+    sanitized['neurologicalSymptoms'] = userInput['neurologicalSymptoms'] == true;
+    sanitized['legSwelling'] = userInput['legSwelling'] == true;
+    sanitized['sweating'] = userInput['sweating'] == true;
+    sanitized['dizziness'] = userInput['dizziness'] == true;
+    sanitized['nausea'] = userInput['nausea'] == true;
 
-    // Medical History (optional)
-    if (userInput.containsKey('diabetes')) {
-      sanitized['diabetes'] = userInput['diabetes'];
-    }
-    if (userInput.containsKey('hypertension')) {
-      sanitized['hypertension'] = userInput['hypertension'];
-    }
-    if (userInput.containsKey('ckd')) {
-      sanitized['ckd'] = userInput['ckd'];
-    }
-    if (userInput.containsKey('highCholesterol')) {
-      sanitized['highCholesterol'] = userInput['highCholesterol'];
-    }
-    if (userInput.containsKey('previousHeartDisease')) {
-      sanitized['previousHeartDisease'] = userInput['previousHeartDisease'];
-    }
+    // Vital Signs (only include if not empty - CRITICAL FIX)
+    final systolicBP = parseInt(userInput['systolicBP']);
+    if (systolicBP != null) sanitized['systolicBP'] = systolicBP;
 
-    // Lifestyle (optional)
-    if (userInput.containsKey('smoking')) {
-      sanitized['smoking'] = userInput['smoking'];
-    }
-    if (userInput.containsKey('obesity')) {
-      sanitized['obesity'] = userInput['obesity'];
-    }
-    if (userInput.containsKey('familyHistory')) {
-      sanitized['familyHistory'] = userInput['familyHistory'];
-    }
+    final diastolicBP = parseInt(userInput['diastolicBP']);
+    if (diastolicBP != null) sanitized['diastolicBP'] = diastolicBP;
+
+    final heartRate = parseInt(userInput['heartRate']);
+    if (heartRate != null) sanitized['heartRate'] = heartRate;
+
+    final oxygenSaturation = parseDouble(userInput['oxygenSaturation']);
+    if (oxygenSaturation != null) sanitized['oxygenSaturation'] = oxygenSaturation;
+
+    final temperature = parseDouble(userInput['temperature']);
+    if (temperature != null) sanitized['temperature'] = temperature;
+
+    // Medical History - Boolean fields (always include)
+    sanitized['diabetes'] = userInput['diabetes'] == true;
+    sanitized['hypertension'] = userInput['hypertension'] == true;
+    sanitized['ckd'] = userInput['ckd'] == true;
+    sanitized['highCholesterol'] = userInput['highCholesterol'] == true;
+    sanitized['previousHeartDisease'] = userInput['previousHeartDisease'] == true;
+
+    // Lifestyle - Boolean fields (always include)
+    sanitized['smoking'] = userInput['smoking'] == true;
+    sanitized['obesity'] = userInput['obesity'] == true;
+    sanitized['familyHistory'] = userInput['familyHistory'] == true;
 
     return sanitized;
   }

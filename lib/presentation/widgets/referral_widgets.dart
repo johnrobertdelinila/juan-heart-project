@@ -1,5 +1,5 @@
 /// Reusable UI Components for Referral & Care Navigation System
-/// 
+///
 /// Contains enhanced widgets with emotional design, accessibility,
 /// and Filipino cultural elements
 ///
@@ -12,22 +12,24 @@
 import 'package:flutter/material.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/models/referral_data.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 /// PHC Trust Badge - Displays Philippine Heart Center verification
 class PHCTrustBadge extends StatelessWidget {
   final String language;
-  
+
   const PHCTrustBadge({Key? key, required this.language}) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: ColorConstant.verifiedBadge.withOpacity(0.1),
+        color: ColorConstant.verifiedBadge.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: ColorConstant.verifiedBadge.withOpacity(0.3),
+          color: ColorConstant.verifiedBadge.withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
@@ -41,10 +43,8 @@ class PHCTrustBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            language == 'fil' 
-                ? 'Partner ng PHC'
-                : 'PHC Verified Partner',
-            style: TextStyle(
+            language == 'fil' ? 'Partner ng PHC' : 'PHC Verified Partner',
+            style: JHTextStyles.caption.copyWith(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: ColorConstant.verifiedBadge,
@@ -61,22 +61,22 @@ class PHCTrustBadge extends StatelessWidget {
 class AnimatedHeartPulse extends StatefulWidget {
   final Color color;
   final double size;
-  
+
   const AnimatedHeartPulse({
-    Key? key, 
+    Key? key,
     required this.color,
     this.size = 24,
   }) : super(key: key);
-  
+
   @override
   State<AnimatedHeartPulse> createState() => _AnimatedHeartPulseState();
 }
 
-class _AnimatedHeartPulseState extends State<AnimatedHeartPulse> 
+class _AnimatedHeartPulseState extends State<AnimatedHeartPulse>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -84,18 +84,18 @@ class _AnimatedHeartPulseState extends State<AnimatedHeartPulse>
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _scaleAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return ScaleTransition(
@@ -114,14 +114,14 @@ class ReassuranceMessage extends StatelessWidget {
   final String message;
   final IconData icon;
   final Color? backgroundColor;
-  
+
   const ReassuranceMessage({
     Key? key,
     required this.message,
     this.icon = Icons.support_agent,
     this.backgroundColor,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -132,12 +132,13 @@ class ReassuranceMessage extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             backgroundColor ?? ColorConstant.gradientBlueStart,
-            backgroundColor?.withOpacity(0.5) ?? ColorConstant.gradientBlueEnd,
+            backgroundColor?.withValues(alpha: 0.5) ??
+                ColorConstant.gradientBlueEnd,
           ],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ColorConstant.calmingBlue.withOpacity(0.2),
+          color: ColorConstant.calmingBlue.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -146,7 +147,7 @@ class ReassuranceMessage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: ColorConstant.calmingBlue.withOpacity(0.15),
+              color: ColorConstant.calmingBlue.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -159,10 +160,8 @@ class ReassuranceMessage extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: ColorConstant.bluedark,
-                height: 1.5,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -183,7 +182,7 @@ class EnhancedFacilityCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onCall;
   final VoidCallback? onNavigate;
-  
+
   const EnhancedFacilityCard({
     Key? key,
     required this.facility,
@@ -195,300 +194,299 @@ class EnhancedFacilityCard extends StatelessWidget {
     this.onCall,
     this.onNavigate,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? ColorConstant.calmingBlue.withOpacity(0.08)
-            : ColorConstant.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected
-              ? ColorConstant.calmingBlue
-              : ColorConstant.cardBorder,
-          width: isSelected ? 2.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected 
-                ? ColorConstant.calmingBlue.withOpacity(0.15)
-                : ColorConstant.cardShadowMedium,
-            blurRadius: isSelected ? 12 : 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Recommended badge (if applicable)
-          if (showRecommendedBadge)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    ColorConstant.verifiedBadge.withOpacity(0.15),
-                    ColorConstant.verifiedBadge.withOpacity(0.05),
-                  ],
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
+      decoration: isSelected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: ColorConstant.calmingBlue,
+                width: 2.5,
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.recommend,
-                    size: 16,
-                    color: ColorConstant.verifiedBadge,
+            )
+          : null,
+      child: StandardCard(
+        padding: EdgeInsets.zero,
+        backgroundColor: isSelected
+            ? ColorConstant.calmingBlue.withValues(alpha: 0.05)
+            : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Recommended badge (if applicable)
+            if (showRecommendedBadge)
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      ColorConstant.verifiedBadge.withValues(alpha: 0.15),
+                      ColorConstant.verifiedBadge.withValues(alpha: 0.05),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    recommendationText ?? 
-                        (language == 'fil' ? 'Inirerekomenda para sa iyo' : 'Recommended for You'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    topRight: Radius.circular(15),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.recommend,
+                      size: 16,
                       color: ColorConstant.verifiedBadge,
                     ),
-                  ),
-                ],
-              ),
-            ),
-          
-          // Facility content
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Facility icon
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              ColorConstant.calmingBlue.withOpacity(0.15),
-                              ColorConstant.calmingBlue.withOpacity(0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          facility.typeIcon,
-                          color: ColorConstant.calmingBlue,
-                          size: 28,
-                        ),
+                    const SizedBox(width: 6),
+                    Text(
+                      recommendationText ??
+                          (language == 'fil'
+                              ? 'Inirerekomenda para sa iyo'
+                              : 'Recommended for You'),
+                      style: JHTextStyles.caption.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: ColorConstant.verifiedBadge,
                       ),
-                      const SizedBox(width: 14),
-                      // Facility info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    facility.name,
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      color: ColorConstant.bluedark,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: ColorConstant.calmingBlue,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.check,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Facility content
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(15),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Facility icon
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                ColorConstant.calmingBlue
+                                    .withValues(alpha: 0.15),
+                                ColorConstant.calmingBlue
+                                    .withValues(alpha: 0.08),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            // Type badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: ColorConstant.calmingBlue.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            facility.typeIcon,
+                            color: ColorConstant.calmingBlue,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        // Facility info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Icon(
-                                    Icons.local_hospital_outlined,
-                                    size: 12,
-                                    color: ColorConstant.trustBlue,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    facility.typeName,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: ColorConstant.trustBlue,
-                                      fontWeight: FontWeight.w600,
+                                  Expanded(
+                                    child: Text(
+                                      facility.name,
+                                      style: JHTextStyles.h5.copyWith(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        color: ColorConstant.bluedark,
+                                        letterSpacing: -0.3,
+                                      ),
                                     ),
                                   ),
+                                  if (isSelected)
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: ColorConstant.calmingBlue,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
                                 ],
+                              ),
+                              const SizedBox(height: 6),
+                              // Type badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ColorConstant.calmingBlue
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.local_hospital_outlined,
+                                      size: 12,
+                                      color: ColorConstant.trustBlue,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      facility.typeName,
+                                      style: JHTextStyles.caption.copyWith(
+                                        fontSize: 11,
+                                        color: ColorConstant.trustBlue,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Distance and availability
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        _InfoChip(
+                          icon: Icons.location_on,
+                          label: facility.distanceText,
+                          color: ColorConstant.gentleGray,
+                        ),
+                        if (facility.is24Hours)
+                          _InfoChip(
+                            icon: Icons.access_time,
+                            label:
+                                language == 'fil' ? 'Bukas 24/7' : 'Open 24/7',
+                            color: ColorConstant.reassuringGreen,
+                            isBadge: true,
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Address
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.place_outlined,
+                          size: 16,
+                          color: ColorConstant.gentleGray,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            facility.address,
+                            style: JHTextStyles.caption.copyWith(
+                              fontSize: 13,
+                              color: ColorConstant.gentleGray,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Notes/Description (if available)
+                    if (facility.description != null &&
+                        facility.description!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: ColorConstant.warmBeige,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 14,
+                              color: ColorConstant.trustBlue,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                facility.description!,
+                                style: JHTextStyles.caption.copyWith(
+                                  color: ColorConstant.bluedark
+                                      .withValues(alpha: 0.9),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ],
-                  ),
-                  
-                  const SizedBox(height: 14),
-                  
-                  // Distance and availability
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      _InfoChip(
-                        icon: Icons.location_on,
-                        label: facility.distanceText,
-                        color: ColorConstant.gentleGray,
-                      ),
-                      if (facility.is24Hours)
-                        _InfoChip(
-                          icon: Icons.access_time,
-                          label: language == 'fil' ? 'Bukas 24/7' : 'Open 24/7',
-                          color: ColorConstant.reassuringGreen,
-                          isBadge: true,
-                        ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // Address
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.place_outlined,
-                        size: 16,
-                        color: ColorConstant.gentleGray,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          facility.address,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: ColorConstant.gentleGray,
-                            height: 1.5,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  // Notes/Description (if available)
-                  if (facility.description != null && facility.description!.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: ColorConstant.warmBeige,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 14,
-                            color: ColorConstant.trustBlue,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              facility.description!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: ColorConstant.bluedark.withOpacity(0.9),
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                        ],
+                  ],
+                ),
+              ),
+            ),
+
+            // Action buttons
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              decoration: BoxDecoration(
+                color: ColorConstant.softWhite,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (onCall != null && facility.primaryContact != null)
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.phone_outlined,
+                        label: language == 'fil' ? 'Tawagan' : 'Call',
+                        color: ColorConstant.reassuringGreen,
+                        onPressed: onCall!,
+                        isPrimary: false,
                       ),
                     ),
-                  ],
+                  if (onCall != null &&
+                      facility.primaryContact != null &&
+                      onNavigate != null)
+                    const SizedBox(width: 10),
+                  if (onNavigate != null)
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.directions_outlined,
+                        label: language == 'fil' ? 'Pumunta' : 'Navigate',
+                        color: ColorConstant.calmingBlue,
+                        onPressed: onNavigate!,
+                        isPrimary: true,
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-          
-          // Action buttons
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: BoxDecoration(
-              color: ColorConstant.softWhite,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                if (onCall != null && facility.primaryContact != null)
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.phone_outlined,
-                      label: language == 'fil' ? 'Tawagan' : 'Call',
-                      color: ColorConstant.reassuringGreen,
-                      onPressed: onCall!,
-                      isPrimary: false,
-                    ),
-                  ),
-                if (onCall != null && facility.primaryContact != null && onNavigate != null)
-                  const SizedBox(width: 10),
-                if (onNavigate != null)
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.directions_outlined,
-                      label: language == 'fil' ? 'Pumunta' : 'Navigate',
-                      color: ColorConstant.calmingBlue,
-                      onPressed: onNavigate!,
-                      isPrimary: true,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -500,14 +498,14 @@ class _InfoChip extends StatelessWidget {
   final String label;
   final Color color;
   final bool isBadge;
-  
+
   const _InfoChip({
     required this.icon,
     required this.label,
     required this.color,
     this.isBadge = false,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -516,7 +514,7 @@ class _InfoChip extends StatelessWidget {
         vertical: isBadge ? 5 : 4,
       ),
       decoration: BoxDecoration(
-        color: isBadge ? color.withOpacity(0.15) : Colors.transparent,
+        color: isBadge ? color.withValues(alpha: 0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -526,8 +524,7 @@ class _InfoChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.caption.copyWith(
               color: color,
               fontWeight: isBadge ? FontWeight.w600 : FontWeight.w500,
             ),
@@ -545,7 +542,7 @@ class _ActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback onPressed;
   final bool isPrimary;
-  
+
   const _ActionButton({
     required this.icon,
     required this.label,
@@ -553,7 +550,7 @@ class _ActionButton extends StatelessWidget {
     required this.onPressed,
     required this.isPrimary,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -595,14 +592,14 @@ class CarePathBreadcrumb extends StatelessWidget {
   final List<String> steps;
   final int currentStep;
   final String language;
-  
+
   const CarePathBreadcrumb({
     Key? key,
     required this.steps,
     required this.currentStep,
     required this.language,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -636,15 +633,15 @@ class CarePathBreadcrumb extends StatelessWidget {
                       child: Icon(
                         Icons.arrow_forward_ios,
                         size: 12,
-                        color: ColorConstant.gentleGray.withOpacity(0.5),
+                        color: ColorConstant.gentleGray.withValues(alpha: 0.5),
                       ),
                     );
                   }
-                  
+
                   final stepIndex = index ~/ 2;
                   final isActive = stepIndex == currentStep;
                   final isCompleted = stepIndex < currentStep;
-                  
+
                   return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -654,7 +651,8 @@ class CarePathBreadcrumb extends StatelessWidget {
                       color: isActive
                           ? ColorConstant.calmingBlue
                           : isCompleted
-                              ? ColorConstant.reassuringGreen.withOpacity(0.15)
+                              ? ColorConstant.reassuringGreen
+                                  .withValues(alpha: 0.15)
                               : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
@@ -668,9 +666,9 @@ class CarePathBreadcrumb extends StatelessWidget {
                     ),
                     child: Text(
                       steps[stepIndex],
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                      style: JHTextStyles.caption.copyWith(
+                        fontWeight:
+                            isActive ? FontWeight.w600 : FontWeight.w500,
                         color: isActive
                             ? Colors.white
                             : isCompleted
@@ -698,7 +696,7 @@ class LargeAccessibleButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final bool isOutlined;
-  
+
   const LargeAccessibleButton({
     Key? key,
     required this.label,
@@ -709,7 +707,7 @@ class LargeAccessibleButton extends StatelessWidget {
     this.isLoading = false,
     this.isOutlined = false,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -733,7 +731,7 @@ class LargeAccessibleButton extends StatelessWidget {
                 backgroundColor: backgroundColor,
                 foregroundColor: foregroundColor,
                 elevation: 2,
-                shadowColor: backgroundColor.withOpacity(0.3),
+                shadowColor: backgroundColor.withValues(alpha: 0.3),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -742,7 +740,7 @@ class LargeAccessibleButton extends StatelessWidget {
             ),
     );
   }
-  
+
   Widget _buildContent() {
     if (isLoading) {
       return SizedBox(
@@ -754,7 +752,7 @@ class LargeAccessibleButton extends StatelessWidget {
         ),
       );
     }
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -762,7 +760,7 @@ class LargeAccessibleButton extends StatelessWidget {
         const SizedBox(width: 14),
         Text(
           label,
-          style: TextStyle(
+          style: JHTextStyles.h5.copyWith(
             fontSize: 17,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.2,
@@ -778,14 +776,14 @@ class FilterChipRow extends StatelessWidget {
   final List<String> filters;
   final int selectedIndex;
   final Function(int) onSelected;
-  
+
   const FilterChipRow({
     Key? key,
     required this.filters,
     required this.selectedIndex,
     required this.onSelected,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -800,7 +798,7 @@ class FilterChipRow extends StatelessWidget {
           return FilterChip(
             label: Text(
               filters[index],
-              style: TextStyle(
+              style: JHTextStyles.caption.copyWith(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
@@ -808,7 +806,7 @@ class FilterChipRow extends StatelessWidget {
             selected: isSelected,
             onSelected: (_) => onSelected(index),
             backgroundColor: ColorConstant.softWhite,
-            selectedColor: ColorConstant.calmingBlue.withOpacity(0.15),
+            selectedColor: ColorConstant.calmingBlue.withValues(alpha: 0.15),
             checkmarkColor: ColorConstant.calmingBlue,
             side: BorderSide(
               color: isSelected
@@ -823,4 +821,3 @@ class FilterChipRow extends StatelessWidget {
     );
   }
 }
-

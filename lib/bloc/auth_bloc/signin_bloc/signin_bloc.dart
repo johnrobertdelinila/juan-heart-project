@@ -14,14 +14,14 @@ class SignInBloc extends Bloc<SignInEvent, SignInBlocState> {
     required this.authRepo,
   }) : super(const SignInBlocState()) {
     on<SignInEmail>(
-      (event, emit) => {
-        emit(state.copyWith(email: event.email)),
+      (event, emit) {
+        emit(state.copyWith(email: event.email));
       },
     );
 
     on<SignInPassword>(
-      (event, emit) => {
-        emit(state.copyWith(password: event.password)),
+      (event, emit) {
+        emit(state.copyWith(password: event.password));
       },
     );
 

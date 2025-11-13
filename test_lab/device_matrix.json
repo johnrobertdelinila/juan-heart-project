@@ -1,0 +1,373 @@
+{
+  "deviceMatrix": {
+    "android": {
+      "lowEnd": [
+        {
+          "manufacturer": "Samsung",
+          "model": "Galaxy J2",
+          "apiLevel": 21,
+          "osVersion": "5.0",
+          "codeName": "Lollipop",
+          "ram": "2GB",
+          "resolution": "960x540",
+          "screenSize": 4.7,
+          "testLabModel": "j2lte",
+          "priority": "critical",
+          "marketShare": "high",
+          "notes": "Very common in Philippines, aggressive memory constraints"
+        },
+        {
+          "manufacturer": "Oppo",
+          "model": "A3s",
+          "apiLevel": 27,
+          "osVersion": "8.1",
+          "codeName": "Oreo",
+          "ram": "2GB",
+          "resolution": "1520x720",
+          "screenSize": 6.2,
+          "testLabModel": "generic_low_end",
+          "priority": "high",
+          "marketShare": "medium",
+          "notes": "ColorOS customizations, test battery optimization"
+        },
+        {
+          "manufacturer": "Vivo",
+          "model": "Y11",
+          "apiLevel": 28,
+          "osVersion": "9.0",
+          "codeName": "Pie",
+          "ram": "3GB",
+          "resolution": "1520x720",
+          "screenSize": 6.35,
+          "testLabModel": "generic_low_end",
+          "priority": "high",
+          "marketShare": "medium",
+          "notes": "Funtouch OS, test permission handling"
+        }
+      ],
+      "midRange": [
+        {
+          "manufacturer": "Samsung",
+          "model": "Galaxy A52",
+          "apiLevel": 30,
+          "osVersion": "11.0",
+          "codeName": "R",
+          "ram": "6GB",
+          "resolution": "2400x1080",
+          "screenSize": 6.5,
+          "testLabModel": "a52sxq",
+          "priority": "high",
+          "marketShare": "high",
+          "notes": "One UI, test Samsung-specific features"
+        },
+        {
+          "manufacturer": "Xiaomi",
+          "model": "Redmi Note 10",
+          "apiLevel": 30,
+          "osVersion": "11.0",
+          "codeName": "R",
+          "ram": "4GB",
+          "resolution": "2400x1080",
+          "screenSize": 6.43,
+          "testLabModel": "generic_mid_range",
+          "priority": "high",
+          "marketShare": "high",
+          "notes": "MIUI aggressive battery optimization, test background sync"
+        },
+        {
+          "manufacturer": "Realme",
+          "model": "8",
+          "apiLevel": 30,
+          "osVersion": "11.0",
+          "codeName": "R",
+          "ram": "4GB",
+          "resolution": "2400x1080",
+          "screenSize": 6.4,
+          "testLabModel": "generic_mid_range",
+          "priority": "medium",
+          "marketShare": "medium",
+          "notes": "Realme UI, test notification delivery"
+        }
+      ],
+      "highEnd": [
+        {
+          "manufacturer": "Samsung",
+          "model": "Galaxy S23",
+          "apiLevel": 33,
+          "osVersion": "13.0",
+          "codeName": "Tiramisu",
+          "ram": "8GB",
+          "resolution": "2340x1080",
+          "screenSize": 6.1,
+          "testLabModel": "dm1q",
+          "priority": "medium",
+          "marketShare": "low",
+          "notes": "Latest Samsung flagship, validate optimal experience"
+        },
+        {
+          "manufacturer": "Google",
+          "model": "Pixel 7",
+          "apiLevel": 33,
+          "osVersion": "13.0",
+          "codeName": "Tiramisu",
+          "ram": "8GB",
+          "resolution": "2400x1080",
+          "screenSize": 6.3,
+          "testLabModel": "panther",
+          "priority": "medium",
+          "marketShare": "low",
+          "notes": "Stock Android, reference device for testing"
+        },
+        {
+          "manufacturer": "OnePlus",
+          "model": "11",
+          "apiLevel": 33,
+          "osVersion": "13.0",
+          "codeName": "Tiramisu",
+          "ram": "12GB",
+          "resolution": "3216x1440",
+          "screenSize": 6.7,
+          "testLabModel": "generic_high_end",
+          "priority": "low",
+          "marketShare": "low",
+          "notes": "OxygenOS, test gesture navigation"
+        }
+      ]
+    },
+    "ios": {
+      "older": [
+        {
+          "model": "iPhone 7",
+          "osVersion": "12.0",
+          "ram": "2GB",
+          "resolution": "1334x750",
+          "screenSize": 4.7,
+          "testLabModel": "iphone7",
+          "priority": "high",
+          "marketShare": "medium",
+          "notes": "Oldest supported iOS version, critical for accessibility"
+        },
+        {
+          "model": "iPhone 8",
+          "osVersion": "12.0",
+          "ram": "2GB",
+          "resolution": "1334x750",
+          "screenSize": 4.7,
+          "testLabModel": "iphone8",
+          "priority": "high",
+          "marketShare": "medium",
+          "notes": "Last non-notch iPhone, test UI layouts"
+        }
+      ],
+      "current": [
+        {
+          "model": "iPhone X",
+          "osVersion": "13.0",
+          "ram": "3GB",
+          "resolution": "2436x1125",
+          "screenSize": 5.8,
+          "testLabModel": "iphonex",
+          "priority": "high",
+          "marketShare": "high",
+          "notes": "First notch iPhone, test safe area handling"
+        },
+        {
+          "model": "iPhone XR",
+          "osVersion": "13.0",
+          "ram": "3GB",
+          "resolution": "1792x828",
+          "screenSize": 6.1,
+          "testLabModel": "iphonexr",
+          "priority": "high",
+          "marketShare": "high",
+          "notes": "Popular mid-range option, test performance"
+        },
+        {
+          "model": "iPhone 11",
+          "osVersion": "14.0",
+          "ram": "4GB",
+          "resolution": "1792x828",
+          "screenSize": 6.1,
+          "testLabModel": "iphone11",
+          "priority": "high",
+          "marketShare": "high",
+          "notes": "Very common model, comprehensive testing"
+        },
+        {
+          "model": "iPhone 12",
+          "osVersion": "15.0",
+          "ram": "4GB",
+          "resolution": "2532x1170",
+          "screenSize": 6.1,
+          "testLabModel": "iphone12",
+          "priority": "high",
+          "marketShare": "high",
+          "notes": "5G capable, test network switching"
+        }
+      ],
+      "latest": [
+        {
+          "model": "iPhone 13",
+          "osVersion": "16.0",
+          "ram": "4GB",
+          "resolution": "2532x1170",
+          "screenSize": 6.1,
+          "testLabModel": "iphone13",
+          "priority": "medium",
+          "marketShare": "medium",
+          "notes": "Recent flagship, validate optimal experience"
+        },
+        {
+          "model": "iPhone 14",
+          "osVersion": "16.0",
+          "ram": "6GB",
+          "resolution": "2532x1170",
+          "screenSize": 6.1,
+          "testLabModel": "iphone14",
+          "priority": "medium",
+          "marketShare": "low",
+          "notes": "Latest standard model"
+        },
+        {
+          "model": "iPhone 14 Pro",
+          "osVersion": "17.0",
+          "ram": "6GB",
+          "resolution": "2556x1179",
+          "screenSize": 6.1,
+          "testLabModel": "iphone14pro",
+          "priority": "low",
+          "marketShare": "low",
+          "notes": "Dynamic Island, test UI adaptation"
+        }
+      ]
+    }
+  },
+  "networkConditions": [
+    {
+      "name": "2G Edge",
+      "speed": "240 Kbps",
+      "latency": "400ms",
+      "priority": "critical",
+      "scenario": "Rural Philippines",
+      "notes": "Test offline-first functionality, sync queue resilience"
+    },
+    {
+      "name": "3G",
+      "speed": "1 Mbps",
+      "latency": "100ms",
+      "priority": "high",
+      "scenario": "Common in provinces",
+      "notes": "Test API timeouts, progressive loading"
+    },
+    {
+      "name": "4G LTE",
+      "speed": "10 Mbps",
+      "latency": "50ms",
+      "priority": "medium",
+      "scenario": "Urban areas",
+      "notes": "Test optimal performance"
+    },
+    {
+      "name": "WiFi",
+      "speed": "50 Mbps",
+      "latency": "10ms",
+      "priority": "medium",
+      "scenario": "Home/office",
+      "notes": "Test full feature set"
+    },
+    {
+      "name": "Offline",
+      "speed": "0 Kbps",
+      "latency": "N/A",
+      "priority": "critical",
+      "scenario": "No connectivity",
+      "notes": "Test offline mode, data persistence, sync queue"
+    },
+    {
+      "name": "Intermittent",
+      "speed": "Variable",
+      "latency": "Variable",
+      "priority": "high",
+      "scenario": "Unstable connection",
+      "notes": "Test retry logic, error handling, network switching"
+    }
+  ],
+  "testPriorities": {
+    "critical": [
+      "App installation and launch",
+      "User authentication (registration, login)",
+      "Heart risk assessment completion",
+      "Offline data storage and sync",
+      "Emergency features (stroke, SOS)",
+      "Data integrity (no data loss)",
+      "Security (encryption, authentication)"
+    ],
+    "high": [
+      "Appointment booking and management",
+      "GPS facility recommendations",
+      "PDF/CSV generation",
+      "Notification delivery",
+      "Bilingual support (EN/FIL)",
+      "Performance on low-end devices",
+      "Network error handling"
+    ],
+    "medium": [
+      "Analytics dashboard",
+      "Educational content",
+      "Profile management",
+      "Settings and preferences",
+      "UI/UX consistency",
+      "Accessibility features"
+    ],
+    "low": [
+      "Animations and transitions",
+      "Theme switching",
+      "Non-critical visual polish",
+      "Advanced analytics features"
+    ]
+  },
+  "knownDeviceIssues": {
+    "samsung": {
+      "issue": "Edge panel interference",
+      "affectedModels": ["Galaxy S series", "Galaxy Note series"],
+      "workaround": "Test swipe gestures from edge, ensure no conflicts",
+      "severity": "medium"
+    },
+    "xiaomi": {
+      "issue": "Aggressive battery optimization kills background sync",
+      "affectedModels": ["All MIUI devices"],
+      "workaround": "Request battery optimization exemption, document in setup",
+      "severity": "high"
+    },
+    "huawei": {
+      "issue": "HMS vs GMS services compatibility",
+      "affectedModels": ["Post-2019 Huawei devices"],
+      "workaround": "Ensure app works without Google Play Services",
+      "severity": "critical"
+    },
+    "oppo": {
+      "issue": "Permission prompts on every app launch",
+      "affectedModels": ["ColorOS devices"],
+      "workaround": "Document permission setup, test permission persistence",
+      "severity": "medium"
+    },
+    "vivo": {
+      "issue": "Notification delivery delays",
+      "affectedModels": ["Funtouch OS devices"],
+      "workaround": "Test notification settings, request exemptions",
+      "severity": "medium"
+    },
+    "oneplus": {
+      "issue": "Gesture navigation conflicts",
+      "affectedModels": ["OxygenOS devices"],
+      "workaround": "Test all gestures, provide alternative navigation",
+      "severity": "low"
+    },
+    "ios": {
+      "issue": "Safe area insets with notch/Dynamic Island",
+      "affectedModels": ["iPhone X and later"],
+      "workaround": "Use SafeArea widget, test on all notch variants",
+      "severity": "medium"
+    }
+  }
+}

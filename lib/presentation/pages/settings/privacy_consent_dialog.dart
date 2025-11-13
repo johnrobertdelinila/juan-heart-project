@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/services/privacy_service.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 /// Privacy Consent Dialog
 ///
@@ -120,17 +121,15 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.privacy_tip, color: Colors.white, size: 32),
+                  const Icon(Icons.privacy_tip, color: Colors.white, size: 32),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       Get.locale?.languageCode == 'fil'
                           ? 'Privacy at Data Protection'
                           : 'Privacy & Data Protection',
-                      style: const TextStyle(
+                      style: JHTextStyles.h5.copyWith(
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -150,7 +149,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                       decoration: BoxDecoration(
                         color: _currentPage >= index
                             ? ColorConstant.trustBlue
-                            : ColorConstant.gentleGray.withOpacity(0.3),
+                            : ColorConstant.gentleGray.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -191,7 +190,9 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                       onPressed: _isProcessing ? null : _previousPage,
                       child: Text(
                         Get.locale?.languageCode == 'fil' ? 'Bumalik' : 'Back',
-                        style: TextStyle(color: ColorConstant.gentleGray),
+                        style: JHTextStyles.button.copyWith(
+                          color: ColorConstant.gentleGray,
+                        ),
                       ),
                     ),
                   const Spacer(),
@@ -225,8 +226,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                                 : (Get.locale?.languageCode == 'fil'
                                     ? 'Sumang-ayon'
                                     : 'I Agree'),
-                            style: const TextStyle(
-                              fontSize: 15,
+                            style: JHTextStyles.bodyBase.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -256,9 +256,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
             Get.locale?.languageCode == 'fil'
                 ? 'Maligayang pagdating sa Juan Heart!'
                 : 'Welcome to Juan Heart!',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h3.copyWith(
               color: ColorConstant.trustBlue,
             ),
           ),
@@ -267,8 +265,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
             Get.locale?.languageCode == 'fil'
                 ? 'Bago magsimula, kailangan nating pag-usapan kung paano namin poprotektahan ang iyong health data.'
                 : 'Before we begin, let\'s talk about how we protect your health data.',
-            style: TextStyle(
-              fontSize: 15,
+            style: JHTextStyles.bodyBase.copyWith(
               color: ColorConstant.gentleGray,
               height: 1.5,
             ),
@@ -316,9 +313,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
             Get.locale?.languageCode == 'fil'
                 ? 'Pumili ng Mga Preference'
                 : 'Choose Your Preferences',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h4.copyWith(
               color: ColorConstant.trustBlue,
             ),
           ),
@@ -327,8 +322,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
             Get.locale?.languageCode == 'fil'
                 ? 'Pwede mong baguhin ito mamaya sa Settings'
                 : 'You can change these later in Settings',
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               color: ColorConstant.gentleGray,
             ),
           ),
@@ -418,9 +412,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
             Get.locale?.languageCode == 'fil'
                 ? 'Handa na!'
                 : 'All Set!',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h3.copyWith(
               color: ColorConstant.trustBlue,
             ),
           ),
@@ -429,8 +421,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
             Get.locale?.languageCode == 'fil'
                 ? 'Narito ang iyong mga pinili:'
                 : 'Here\'s what you\'ve chosen:',
-            style: TextStyle(
-              fontSize: 15,
+            style: JHTextStyles.bodyBase.copyWith(
               color: ColorConstant.gentleGray,
             ),
           ),
@@ -461,7 +452,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
               color: ColorConstant.lightBlueBackground,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: ColorConstant.trustBlue.withOpacity(0.2),
+                color: ColorConstant.trustBlue.withValues(alpha: 0.2),
               ),
             ),
             child: Column(
@@ -479,8 +470,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                       Get.locale?.languageCode == 'fil'
                           ? 'Mahalagang Tandaan'
                           : 'Important Note',
-                      style: TextStyle(
-                        fontSize: 14,
+                      style: JHTextStyles.bodySmall.copyWith(
                         fontWeight: FontWeight.bold,
                         color: ColorConstant.trustBlue,
                       ),
@@ -492,8 +482,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                   Get.locale?.languageCode == 'fil'
                       ? 'Pwede mong baguhin ang mga preference na ito anumang oras sa Settings > Privacy & Data. Mayroon ka ring karapatan na i-export o i-delete ang iyong lahat ng data.'
                       : 'You can change these preferences anytime in Settings > Privacy & Data. You also have the right to export or delete all your data.',
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: JHTextStyles.caption.copyWith(
                     color: ColorConstant.gentleGray,
                     height: 1.4,
                   ),
@@ -517,7 +506,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
       decoration: BoxDecoration(
         color: ColorConstant.lightBlueBackground,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ColorConstant.trustBlue.withOpacity(0.1)),
+        border: Border.all(color: ColorConstant.trustBlue.withValues(alpha: 0.1)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,8 +519,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 15,
+                  style: JHTextStyles.bodyBase.copyWith(
                     fontWeight: FontWeight.w600,
                     color: ColorConstant.trustBlue,
                   ),
@@ -539,8 +527,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: JHTextStyles.caption.copyWith(
                     color: ColorConstant.gentleGray,
                     height: 1.3,
                   ),
@@ -569,7 +556,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: value
-              ? ColorConstant.trustBlue.withOpacity(0.3)
+              ? ColorConstant.trustBlue.withValues(alpha: 0.3)
               : ColorConstant.cardBorder,
         ),
         boxShadow: [
@@ -590,8 +577,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 15,
+                  style: JHTextStyles.bodyBase.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -603,15 +589,14 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: ColorConstant.reassuringGreen.withOpacity(0.1),
+                    color: ColorConstant.reassuringGreen.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     Get.locale?.languageCode == 'fil'
                         ? 'Inirerekomenda'
                         : 'Recommended',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: JHTextStyles.caption.copyWith(
                       fontWeight: FontWeight.w600,
                       color: ColorConstant.reassuringGreen,
                     ),
@@ -628,8 +613,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
           const SizedBox(height: 8),
           Text(
             description,
-            style: TextStyle(
-              fontSize: 13,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.gentleGray,
               height: 1.3,
             ),
@@ -654,8 +638,7 @@ class _PrivacyConsentDialogState extends State<PrivacyConsentDialog> {
           const SizedBox(width: 12),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 15,
+            style: JHTextStyles.bodyBase.copyWith(
               color: enabled ? Colors.black87 : ColorConstant.gentleGray,
               fontWeight: enabled ? FontWeight.w600 : FontWeight.normal,
             ),

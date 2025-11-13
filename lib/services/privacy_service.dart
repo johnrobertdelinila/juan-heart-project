@@ -1,20 +1,5 @@
-/// Privacy & Compliance Service
-///
-/// Manages user privacy preferences and data protection compliance
-/// Implements:
-/// - Granular consent management
-/// - Data deletion requests
-/// - Personal data export
-/// - Analytics opt-in/opt-out
-/// - Philippine Data Privacy Act (DPA) compliance
-///
-/// Part of the Privacy & Compliance Platform
-
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:juan_heart/services/analytics_service.dart';
-import 'package:juan_heart/services/analytics_csv_service.dart';
-import 'package:juan_heart/models/assessment_history_model.dart';
 
 class PrivacyService {
   // Storage keys

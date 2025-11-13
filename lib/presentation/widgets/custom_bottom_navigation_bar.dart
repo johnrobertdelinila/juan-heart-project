@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:juan_heart/core/app_exports.dart';
+import 'package:juan_heart/presentation/widgets/cached_image.dart';
+import 'package:juan_heart/services/sync_queue_service.dart';
 
 class CustomBottomNavigationBar extends StatelessWidget {
   final int activeIndex;
@@ -27,7 +29,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, -1),
           ),
@@ -38,21 +40,24 @@ class CustomBottomNavigationBar extends StatelessWidget {
         children: [
           _customButtonIcon(
             onPressHome,
-            Image.asset(
-              activeIndex == 0
+            CachedIconImage(
+              assetPath: activeIndex == 0
                   ? ImageConstant.iconHomeDark
                   : ImageConstant.iconHomeLight,
+              size: 24,
               fit: BoxFit.contain,
             ),
           ),
-          _customButtonIcon(
+          _customButtonIconWithBadge(
             onPressPieChart,
-            Image.asset(
-              activeIndex == 1
+            CachedIconImage(
+              assetPath: activeIndex == 1
                   ? ImageConstant.iconPieChartDark
                   : ImageConstant.iconPieChartLight,
+              size: 24,
               fit: BoxFit.contain,
             ),
+            showBadge: _shouldShowSyncBadge(),
           ),
           GestureDetector(
             onTap: onPressSOS,
@@ -66,10 +71,9 @@ class CustomBottomNavigationBar extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Image.asset(
-                  ImageConstant.imgHealthify,
-                  width: 30,
-                  height: 30,
+                child: CachedIconImage(
+                  assetPath: ImageConstant.imgHealthify,
+                  size: 30,
                 ),
               ),
             ),
@@ -86,10 +90,11 @@ class CustomBottomNavigationBar extends StatelessWidget {
           ),
           _customButtonIcon(
             onPressProfile,
-            Image.asset(
-              activeIndex == 3
+            CachedIconImage(
+              assetPath: activeIndex == 3
                   ? ImageConstant.iconPersonDark
                   : ImageConstant.iconPersonLight,
+              size: 24,
               fit: BoxFit.contain,
             ),
           )
@@ -108,5 +113,48 @@ class CustomBottomNavigationBar extends StatelessWidget {
         child: icon,
       ),
     );
+  }
+
+  Widget _customButtonIconWithBadge(
+    VoidCallback onPress,
+    Widget icon, {
+    required bool showBadge,
+  }) {
+    return IconButton(
+      onPressed: onPress,
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            height: 24,
+            width: 24,
+            child: icon,
+          ),
+          if (showBadge)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: ColorConstant.lightRed,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _shouldShowSyncBadge() {
+    final failedCount = SyncQueueService().getFailedCount();
+    return failedCount > 0;
   }
 }

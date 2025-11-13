@@ -75,6 +75,13 @@ android/**/gradle-wrapper.jar
 android/**/gradlew
 android/**/gradlew.bat
 
+# Android signing configuration (CRITICAL: Never commit these)
+android/key.properties
+android/**/*.jks
+android/**/*.keystore
+*.jks
+*.keystore
+
 # iOS build outputs
 ios/build/
 ios/Pods/
@@ -140,13 +147,19 @@ TestModel/
 
 # Coverage
 coverage/
+coverage.json
+*.lcov
+lcov.info
 
 # Test coverage
 test/coverage/
+test_output.log
+test_results.txt
 
 # Temporary files
 *.tmp
 *.temp
+*.backup
 
 # OS generated files
 Thumbs.db
@@ -242,3 +255,36 @@ typings/
 
 # TernJS port file
 .tern-port
+
+# ==============================================================================
+# AI/Claude Development Files (Never commit to public repository)
+# ==============================================================================
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+agent_activation_guide.md
+juan_heart_claude_code_agents.md
+backend-genkit/
+*_SUMMARY.md
+*_GUIDE.md
+*_IMPLEMENTATION.md
+REDESIGN_PLAN.md
+COMPLETED_MILESTONES.md
+style_guide.md
+TASKS_BACKUP_*.md
+TASKS-COMPLETED-*.md
+coverage_config.json
+MEMORY_PROFILING_COMMANDS.txt
+run_*_profiling.sh
+run_*_tests.sh
+migrate_*.py
+clear_sync_queue.dart
+test_output*.txt
+
+# Keep only these .md files:
+# - PLANNING.md
+# - TASKS.md
+# - Juan_Heart_Mobile_PRD.md
+# - README.md
+# - docs/ directory (security documentation)

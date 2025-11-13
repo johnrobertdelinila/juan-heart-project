@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/medical_triage_assessment_data.dart';
 
 class MedicalTriageAssessmentService {
@@ -6,15 +7,15 @@ class MedicalTriageAssessmentService {
   Future<void> initialize() async {
     if (_isInitialized) return;
     
-    print('🧠 MEDICAL TRIAGE ASSESSMENT: Initializing...');
+    debugPrint('🧠 MEDICAL TRIAGE ASSESSMENT: Initializing...');
     _isInitialized = true;
-    print('✅ MEDICAL TRIAGE ASSESSMENT: Initialization complete');
+    debugPrint('✅ MEDICAL TRIAGE ASSESSMENT: Initialization complete');
   }
 
   /// Main prediction method that combines likelihood and impact scoring
   Map<String, dynamic> assessHeartDiseaseRisk(Map<String, dynamic> userInput) {
-    print('🧠 MEDICAL TRIAGE ASSESSMENT: Starting risk assessment...');
-    print('Input data: $userInput');
+    debugPrint('🧠 MEDICAL TRIAGE ASSESSMENT: Starting risk assessment...');
+    debugPrint('Input data: $userInput');
     
     try {
       // Validate input
@@ -49,15 +50,15 @@ class MedicalTriageAssessmentService {
         'heatmapPosition': _getHeatmapPosition(likelihoodScore, impactScore)
       };
       
-      print('🎯 MEDICAL TRIAGE ASSESSMENT: Assessment complete');
-      print('   Likelihood: $likelihoodScore ($likelihoodLevel)');
-      print('   Impact: $impactScore ($impactLevel)');
-      print('   Final Risk: $finalRiskScore (${riskClassification['category']})');
+      debugPrint('🎯 MEDICAL TRIAGE ASSESSMENT: Assessment complete');
+      debugPrint('   Likelihood: $likelihoodScore ($likelihoodLevel)');
+      debugPrint('   Impact: $impactScore ($impactLevel)');
+      debugPrint('   Final Risk: $finalRiskScore (${riskClassification['category']})');
       
       return assessment;
       
     } catch (e) {
-      print('❌ Error in medical triage assessment: $e');
+      debugPrint('❌ Error in medical triage assessment: $e');
       rethrow;
     }
   }
@@ -101,7 +102,18 @@ class MedicalTriageAssessmentService {
     if (input['neurologicalSymptoms'] == true || input['neurologicalSymptoms'] == 'true') {
       score += 2; // Neurological symptoms
     }
-    
+
+    // Associated symptoms (autonomic response to cardiac stress) - +1 each
+    if (input['sweating'] == true || input['sweating'] == 'true') {
+      score += 1; // Sweating (diaphoresis)
+    }
+    if (input['dizziness'] == true || input['dizziness'] == 'true') {
+      score += 1; // Dizziness
+    }
+    if (input['nausea'] == true || input['nausea'] == 'true') {
+      score += 1; // Nausea/vomiting
+    }
+
     // Palpitations with HR >120 or irregular - +1
     int heartRate = int.tryParse(input['heartRate']?.toString() ?? '0') ?? 0;
     String palpitationType = input['palpitationType']?.toString().toLowerCase() ?? '';
@@ -118,7 +130,9 @@ class MedicalTriageAssessmentService {
     if (input['highCholesterol'] == true || input['highCholesterol'] == 'true') majorRiskFactors++;
     if (input['previousHeartDisease'] == true || input['previousHeartDisease'] == 'true') majorRiskFactors++;
     if (input['smoking'] == true || input['smoking'] == 'true') majorRiskFactors++;
-    
+    if (input['obesity'] == true || input['obesity'] == 'true') majorRiskFactors++;
+    if (input['familyHistory'] == true || input['familyHistory'] == 'true') majorRiskFactors++;
+
     if (majorRiskFactors >= 2) {
       score += 1; // +1 for ≥2 major risk factors
     }

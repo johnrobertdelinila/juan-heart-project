@@ -4,16 +4,16 @@ import 'package:juan_heart/core/app_exports.dart';
 class AppDecoration {
   static BoxDecoration get fillIndigoWithBorderRadiusBottomLR22 =>
       BoxDecoration(
-        color: ColorConstant.bluedark,
+        color: JHColors.midnightBlue,
         borderRadius: BorderRadiusStyle.customBorderRadiusBottomLR22,
       );
 
   static BoxDecoration get fillWhiteWithBorderRadiusAndBoxShadow =>
       BoxDecoration(
-        color: Colors.white,
+        color: JHColors.cloudWhite,
         border: Border.all(
           width: 1,
-          color: ColorConstant.fromHex("DBD7D7"),
+          color: JHColors.slate200,
         ),
         borderRadius: BorderRadiusStyle.roundedBorder12,
         boxShadow: [
@@ -28,7 +28,7 @@ class AppDecoration {
 
   static BoxDecoration get boxShadowWithWhiteFillAndBorderRadius15 =>
       BoxDecoration(
-        color: Colors.white,
+        color: JHColors.cloudWhite,
         borderRadius: BorderRadiusStyle.roundedBorder15,
         boxShadow: [
           BoxShadow(
@@ -42,7 +42,7 @@ class AppDecoration {
 
   static BoxDecoration get boxShadowWithWhiteFillAndBorderRadius15AllSide =>
       BoxDecoration(
-        color: Colors.white,
+        color: JHColors.cloudWhite,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(

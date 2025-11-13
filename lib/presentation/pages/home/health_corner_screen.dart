@@ -5,10 +5,10 @@ class HealthCornerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: SizedBox(
         child: Column(
-          children: const [],
+          children: [],
         ),
       ),
     );

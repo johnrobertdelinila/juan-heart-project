@@ -1,6 +1,6 @@
 # Juan Heart Project
 
-A digital health application that empowers ordinary Filipinos ("Juan") to assess, understand, and manage their cardiovascular health risks using both AI-driven and rule-based risk assessment models.
+A digital health application that empowers ordinary Filipinos ("Juan") to assess, understand, and manage their cardiovascular health risks using both ML-enhanced and rule-based risk assessment models.
 
 ## Project Overview
 
@@ -46,7 +46,7 @@ This project is developed and designed by students of the **Doctor of Informatio
 - **Advanced Heart Risk Assessment**: Comprehensive cardiovascular risk evaluation with real-time scoring
 - **Medical Triage Assessment**: Multi-step assessment following PHC guidelines
 - **Interactive Risk Visualization**: Dynamic charts and progress indicators
-- **AI-Driven Recommendations**: Machine learning-powered health guidance
+- **ML-Driven Recommendations**: Machine learning-powered health guidance
 - **Risk-Based Care Pathways**: Personalized care recommendations based on assessment results
 
 #### **Referral & Care Navigation System**

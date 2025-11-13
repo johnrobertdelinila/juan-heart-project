@@ -110,7 +110,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                   ? 'Bakit mahalaga ang Heart Risk Assessment?'
                   : 'Why is Heart Risk Assessment Important?',
               style: JHTextStyles.h3.copyWith(
-                color: const JHColors.slate900,
+                color: JHColors.slate900,
               ),
             ),
 
@@ -118,7 +118,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
 
             _buildInfoItem(
               icon: Icons.favorite,
-              color: const JHColors.danger,
+              color: JHColors.danger,
               title: lang == 'fil'
                   ? 'Maaga na pagkilala'
                   : 'Early Detection',
@@ -131,7 +131,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
 
             _buildInfoItem(
               icon: Icons.shield_outlined,
-              color: const JHColors.success,
+              color: JHColors.success,
               title: lang == 'fil'
                   ? 'Iwas sa komplikasyon'
                   : 'Prevent Complications',
@@ -144,7 +144,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
 
             _buildInfoItem(
               icon: Icons.insights,
-              color: const JHColors.infoDark,
+              color: JHColors.infoDark,
               title: lang == 'fil'
                   ? 'Personalized na gabay'
                   : 'Personalized Guidance',
@@ -194,7 +194,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                 title,
                 style: JHTextStyles.bodyBase.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: const JHColors.slate900,
+                  color: JHColors.slate900,
                 ),
               ),
               const SizedBox(height: 4),
@@ -236,7 +236,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                     ? 'Sample na Resulta'
                     : 'Sample Results',
                 style: JHTextStyles.h3.copyWith(
-                  color: const JHColors.slate900,
+                  color: JHColors.slate900,
                 ),
               ),
               const SizedBox(height: 16),
@@ -268,7 +268,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
     const userName = ''; // Get.find<UserController>().currentUser?.name ?? '';
 
     return Scaffold(
-      backgroundColor: const JHColors.infoLight,
+      backgroundColor: JHColors.infoLight,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -325,7 +325,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                       : 'Hi${userName.isNotEmpty ? " $userName" : ""}! Let\'s check your heart health.',
                   textAlign: TextAlign.center,
                   style: JHTextStyles.h2.copyWith(
-                    color: const JHColors.slate900,
+                    color: JHColors.slate900,
                   ),
                 ),
 
@@ -350,7 +350,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                   text: lang == 'fil'
                       ? 'Mabilis lang - 2 minuto'
                       : 'Quick - 2 minutes',
-                  color: const JHColors.infoDark,
+                  color: JHColors.infoDark,
                 ),
 
                 const SizedBox(height: 12),
@@ -360,7 +360,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                   text: lang == 'fil'
                       ? 'Verified ng Philippine Heart Center'
                       : 'Verified by Philippine Heart Center',
-                  color: const JHColors.success,
+                  color: JHColors.success,
                 ),
 
                 const SizedBox(height: 12),
@@ -370,7 +370,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
                   text: lang == 'fil'
                       ? 'Makakakuha ng personalized na recommendations'
                       : 'Get personalized recommendations',
-                  color: const JHColors.warning,
+                  color: JHColors.warning,
                 ),
 
                 const SizedBox(height: 40),
@@ -484,7 +484,7 @@ class _HeartRiskAssessmentScreenState extends State<HeartRiskAssessmentScreen>
               text,
               style: JHTextStyles.bodySmall.copyWith(
                 fontWeight: FontWeight.w600,
-                color: const JHColors.slate900,
+                color: JHColors.slate900,
               ),
             ),
           ),

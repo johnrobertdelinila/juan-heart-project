@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import '../services/sync_queue_service.dart';
 import '../services/appointment_sync_service.dart';
 import '../services/appointment_service.dart';
+import '../services/analytics_service.dart';
 import '../models/appointment_model.dart';
+import '../models/assessment_history_model.dart';
 
 /// Service for initializing sync infrastructure.
 ///
@@ -16,11 +19,11 @@ class SyncInitializationService {
   /// Registers sync executors for all operation types.
   static Future<void> initialize() async {
     if (_initialized) {
-      print('ℹ️ Sync infrastructure already initialized');
+      debugPrint('ℹ️ Sync infrastructure already initialized');
       return;
     }
 
-    print('🔧 Initializing sync infrastructure...');
+    debugPrint('🔧 Initializing sync infrastructure...');
 
     try {
       // Initialize sync queue
@@ -29,11 +32,64 @@ class SyncInitializationService {
       // Register sync executors
       _registerSyncExecutors();
 
+      // Queue any unsynced assessments from local storage
+      await _queueUnsyncedAssessments();
+
       _initialized = true;
-      print('✅ Sync infrastructure initialized successfully');
+      debugPrint('✅ Sync infrastructure initialized successfully');
     } catch (e) {
-      print('❌ Failed to initialize sync infrastructure: $e');
+      debugPrint('❌ Failed to initialize sync infrastructure: $e');
       rethrow;
+    }
+  }
+
+  /// Queue unsynced assessments for background sync
+  ///
+  /// Loads assessment history from local storage and queues any that
+  /// haven't been synced to the backend yet.
+  static Future<void> _queueUnsyncedAssessments() async {
+    try {
+      debugPrint('🔄 Checking for unsynced assessments...');
+
+      // Get all assessments from local storage
+      final assessments = await AnalyticsService.getAssessmentHistory();
+
+      if (assessments.isEmpty) {
+        debugPrint('📊 No assessments found in local storage');
+        return;
+      }
+
+      final syncQueue = SyncQueueService();
+      int queuedCount = 0;
+
+      // Queue each assessment for sync
+      // Note: Since SharedPreferences doesn't track sync status,
+      // we queue all assessments and let the sync executor handle duplicates
+      for (final assessment in assessments) {
+        try {
+          await syncQueue.addOperation(
+            SyncOperation(
+              id: 'assessment_sync_${assessment.id}_startup',
+              type: SyncOperationType.syncAssessment,
+              data: assessment.toJson(),
+            ),
+          );
+          queuedCount++;
+        } catch (e) {
+          debugPrint('⚠️ Failed to queue assessment ${assessment.id}: $e');
+        }
+      }
+
+      debugPrint('✅ Queued $queuedCount/${assessments.length} assessments for sync');
+
+      // Trigger queue processing if we have items
+      if (queuedCount > 0) {
+        debugPrint('🚀 Triggering sync queue processing...');
+        syncQueue.processQueue();
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to queue unsynced assessments: $e');
+      // Don't rethrow - sync infrastructure should still initialize
     }
   }
 
@@ -59,7 +115,7 @@ class SyncInitializationService {
       _executeAppointmentCancel,
     );
 
-    print('✅ Registered ${3} sync executors');
+    debugPrint('✅ Registered ${3} sync executors');
   }
 
   /// Execute appointment sync operation.
@@ -67,7 +123,7 @@ class SyncInitializationService {
     SyncOperation operation,
   ) async {
     try {
-      print('🔄 Executing appointment sync: ${operation.id}');
+      debugPrint('🔄 Executing appointment sync: ${operation.id}');
 
       // Reconstruct appointment from operation data
       final appointment = Appointment.fromJson(operation.data);
@@ -83,21 +139,23 @@ class SyncInitializationService {
           appointmentId: appointment.id,
           syncStatus: 'synced',
           backendId: result['backendId'] as int?,
+          syncErrorMessage: null, // Clear any previous error
         );
 
-        print('✅ Appointment synced successfully: ${appointment.id}');
+        debugPrint('✅ Appointment synced successfully: ${appointment.id}');
         return result;
       } else {
-        // Mark as failed
+        // Mark as failed with error details
         await AppointmentService.updateSyncStatus(
           appointmentId: appointment.id,
           syncStatus: 'failed',
+          syncErrorMessage: result['message'] ?? 'Sync failed',
         );
 
         throw Exception(result['message'] ?? 'Sync failed');
       }
     } catch (e) {
-      print('❌ Appointment sync failed: $e');
+      debugPrint('❌ Appointment sync failed: $e');
       rethrow;
     }
   }
@@ -107,7 +165,7 @@ class SyncInitializationService {
     SyncOperation operation,
   ) async {
     try {
-      print('🔄 Executing appointment update: ${operation.id}');
+      debugPrint('🔄 Executing appointment update: ${operation.id}');
 
       final appointment = Appointment.fromJson(operation.data);
 
@@ -123,13 +181,13 @@ class SyncInitializationService {
       );
 
       if (result['success'] == true) {
-        print('✅ Appointment updated successfully: ${appointment.id}');
+        debugPrint('✅ Appointment updated successfully: ${appointment.id}');
         return result;
       } else {
         throw Exception(result['message'] ?? 'Update failed');
       }
     } catch (e) {
-      print('❌ Appointment update failed: $e');
+      debugPrint('❌ Appointment update failed: $e');
       rethrow;
     }
   }
@@ -139,7 +197,7 @@ class SyncInitializationService {
     SyncOperation operation,
   ) async {
     try {
-      print('🔄 Executing appointment cancel: ${operation.id}');
+      debugPrint('🔄 Executing appointment cancel: ${operation.id}');
 
       final appointment = Appointment.fromJson(operation.data);
       final reason = operation.data['cancellation_reason'] as String? ?? 'Cancelled by user';
@@ -156,13 +214,13 @@ class SyncInitializationService {
       );
 
       if (result['success'] == true) {
-        print('✅ Appointment cancelled successfully: ${appointment.id}');
+        debugPrint('✅ Appointment cancelled successfully: ${appointment.id}');
         return result;
       } else {
         throw Exception(result['message'] ?? 'Cancellation failed');
       }
     } catch (e) {
-      print('❌ Appointment cancellation failed: $e');
+      debugPrint('❌ Appointment cancellation failed: $e');
       rethrow;
     }
   }

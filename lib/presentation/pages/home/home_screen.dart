@@ -10,6 +10,8 @@ import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/service/ApiService.dart';
 import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:juan_heart/themes/jh_colors.dart';
+import 'package:juan_heart/themes/jh_spacing.dart';
+import 'package:juan_heart/themes/jh_grid.dart';
 import 'package:juan_heart/services/analytics_service.dart';
 import 'package:juan_heart/services/privacy_service.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
@@ -92,8 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildLoadingScreen() {
     return Container(
       color: ColorConstant.whiteBackground,
-      width: MediaQuery.of(context).size.width,
-      height: MediaQuery.of(context).size.height,
+      width: double.infinity,
+      height: double.infinity,
       child: Center(
         child: CircularProgressIndicator(
           color: ColorConstant.bluedark,
@@ -153,38 +155,38 @@ class _HomeScreenState extends State<HomeScreen> {
             
             // 1. Your Heart Today Section
             _buildHeartTodaySection(),
-            
-            const SizedBox(height: 20),
-            
+
+            const SizedBox(height: JHSpacing.lg),
+
             // 2. Vitals Summary
             _buildVitalsSummary(),
-            
-            const SizedBox(height: 20),
-            
+
+            const SizedBox(height: JHSpacing.lg),
+
             // 3. Progress Snapshot
             _buildProgressSnapshot(),
-            
-            const SizedBox(height: 20),
-            
+
+            const SizedBox(height: JHSpacing.lg),
+
             // 4. Next Recommended Step
             _buildNextRecommendedStep(),
-            
-            const SizedBox(height: 20),
-            
+
+            const SizedBox(height: JHSpacing.lg),
+
             // 5. Health Corner Preview
             _buildHealthCornerPreview(),
-            
-            const SizedBox(height: 20),
-            
+
+            const SizedBox(height: JHSpacing.lg),
+
             // 6. Assessment Streak/Reward Section
             _buildAssessmentStreak(),
-            
-            const SizedBox(height: 20),
-            
+
+            const SizedBox(height: JHSpacing.lg),
+
             // 7. Community & Events (Future Placeholder)
             _buildCommunityEvents(),
-            
-            const SizedBox(height: 100), // Extra padding at bottom for better scrolling
+
+            const SizedBox(height: JHSpacing.xl5), // Extra padding at bottom for better scrolling
           ],
         ),
       ),
@@ -194,7 +196,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // 1. Header with greeting
   Widget _buildHeader(UserModel user) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 50, 22, 20),
+      padding: EdgeInsets.fromLTRB(
+        context.responsivePadding.left,
+        JHSpacing.xl3,
+        context.responsivePadding.right,
+        JHSpacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -407,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Vital Signs' : 'Vital Signs',
                 style: JHTextStyles.h4.copyWith(
-                  color: const JHColors.midnightBlue,
+                  color: JHColors.midnightBlue,
                 ),
               ),
             ],
@@ -504,7 +511,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Pag-unlad' : 'Progress',
                 style: JHTextStyles.h4.copyWith(
-                  color: const JHColors.midnightBlue,
+                  color: JHColors.midnightBlue,
                 ),
               ),
             ],
@@ -584,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Susunod na Hakbang' : 'Next Step',
                 style: JHTextStyles.h4.copyWith(
-                  color: const JHColors.midnightBlue,
+                  color: JHColors.midnightBlue,
                 ),
               ),
             ],
@@ -660,7 +667,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     Get.locale?.languageCode == 'fil' ? 'Edukasyon sa Kalusugan' : 'Health Education',
                     style: JHTextStyles.h4.copyWith(
-                      color: const JHColors.midnightBlue,
+                      color: JHColors.midnightBlue,
                     ),
                   ),
                 ],
@@ -730,7 +737,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Patuloy na Pagsusuri' : 'Assessment Streak',
                 style: JHTextStyles.h4.copyWith(
-                  color: const JHColors.midnightBlue,
+                  color: JHColors.midnightBlue,
                 ),
               ),
             ],
@@ -787,11 +794,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 if (daysSinceLastAssessment >= 7) ...[
-                  StandardButton.compact(
-                    text: Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
-                    onPressed: () {
-                      Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
-                    },
+                  SizedBox(
+                    width: 120,
+                    child: StandardButton.compact(
+                      text: Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
+                      onPressed: () {
+                        Get.toNamed(AppRoutes.medicalTriageAssessmentScreen);
+                      },
+                    ),
                   ),
                 ],
               ],
@@ -816,7 +826,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 Get.locale?.languageCode == 'fil' ? 'Komunidad at Events' : 'Community & Events',
                 style: JHTextStyles.h4.copyWith(
-                  color: const JHColors.midnightBlue,
+                  color: JHColors.midnightBlue,
                 ),
               ),
             ],
@@ -875,15 +885,15 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_latestAssessment!.riskCategory.toLowerCase()) {
       case 'low':
-        return [const JHColors.success, const JHColors.success];
+        return [JHColors.success, JHColors.success];
       case 'mild':
-        return [const JHColors.warning, const JHColors.warning];
+        return [JHColors.warning, JHColors.warning];
       case 'moderate':
-        return [const JHColors.danger, const JHColors.warning];
+        return [JHColors.danger, JHColors.warning];
       case 'high':
-        return [const JHColors.danger, const JHColors.danger];
+        return [JHColors.danger, JHColors.danger];
       case 'critical':
-        return [const JHColors.heartRed, const JHColors.heartRed];
+        return [JHColors.heartRed, JHColors.heartRed];
       default:
         return [ColorConstant.trustBlue, ColorConstant.bluelight];
     }
@@ -894,15 +904,15 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_latestAssessment!.riskCategory.toLowerCase()) {
       case 'low':
-        return const JHColors.success;
+        return JHColors.success;
       case 'mild':
-        return const JHColors.warning;
+        return JHColors.warning;
       case 'moderate':
-        return const JHColors.danger;
+        return JHColors.danger;
       case 'high':
-        return const JHColors.danger;
+        return JHColors.danger;
       case 'critical':
-        return const JHColors.heartRed;
+        return JHColors.heartRed;
       default:
         return ColorConstant.trustBlue;
     }
@@ -967,13 +977,13 @@ class _HomeScreenState extends State<HomeScreen> {
     Color statusColor;
     switch (status.toLowerCase()) {
       case 'normal':
-        statusColor = const JHColors.success;
+        statusColor = JHColors.success;
         break;
       case 'elevated':
-        statusColor = const JHColors.warning;
+        statusColor = JHColors.warning;
         break;
       case 'critical':
-        statusColor = const JHColors.danger;
+        statusColor = JHColors.danger;
         break;
       default:
         statusColor = ColorConstant.gentleGray;
@@ -1080,9 +1090,9 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_trendStats!.trendDirection) {
       case 'improving':
-        return const JHColors.success;
+        return JHColors.success;
       case 'worsening':
-        return const JHColors.danger;
+        return JHColors.danger;
       default:
         return ColorConstant.trustBlue;
     }
@@ -1134,15 +1144,15 @@ class _HomeScreenState extends State<HomeScreen> {
     
     switch (_latestAssessment!.riskCategory.toLowerCase()) {
       case 'low':
-        return const JHColors.success;
+        return JHColors.success;
       case 'mild':
-        return const JHColors.warning;
+        return JHColors.warning;
       case 'moderate':
-        return const JHColors.danger;
+        return JHColors.danger;
       case 'high':
-        return const JHColors.danger;
+        return JHColors.danger;
       case 'critical':
-        return const JHColors.heartRed;
+        return JHColors.heartRed;
       default:
         return ColorConstant.trustBlue;
     }

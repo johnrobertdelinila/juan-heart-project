@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
@@ -5,15 +6,16 @@ import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc.dart';
 import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc_event.dart';
 import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc_state.dart';
 import 'package:juan_heart/core/app_exports.dart';
-import 'package:juan_heart/core/constants/enums.dart';
-import 'package:juan_heart/core/helper_methods.dart';
 import 'package:juan_heart/helper/lang_controller.dart';
 import 'package:juan_heart/models/user_model.dart';
-import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/themes/app_decoration.dart';
-import 'package:juan_heart/themes/app_styles.dart';
-import 'package:translator/translator.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:juan_heart/presentation/pages/settings/privacy_preferences_screen.dart';
+import 'package:juan_heart/presentation/pages/settings/debug_menu_screen.dart';
+import 'package:juan_heart/presentation/pages/settings/conflict_resolution_screen.dart';
+import 'package:juan_heart/presentation/widgets/cached_image.dart';
+import 'package:juan_heart/services/background_sync_service.dart';
+import 'package:juan_heart/services/conflict_resolver.dart';
 
 const List<String> list = <String>['English', 'Filipino'];
 
@@ -27,13 +29,138 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   bool isNotification = true;
   late FetchUserDataBloc fetchUserDataBloc;
-  final translator = GoogleTranslator();
+  final BackgroundSyncService _syncService = BackgroundSyncService.instance;
+
+  // Sync state
+  bool _isSyncing = false;
+  DateTime? _lastSyncTime;
+  bool _backgroundSyncEnabled = true;
+  int _pendingOperations = 0;
+  int _conflictCount = 0;
 
   @override
   void initState() {
     super.initState();
     fetchUserDataBloc = FetchUserDataBloc();
     fetchUserDataBloc.add(const GetUserData());
+    _loadSyncStatus();
+  }
+
+  /// Load current sync status
+  Future<void> _loadSyncStatus() async {
+    final lastSync = await _syncService.getLastSyncTimestamp();
+    final isEnabled = await _syncService.isBackgroundSyncEnabled();
+    final stats = await _syncService.getSyncStatistics();
+    final conflictCount =
+        await ConflictResolver.instance.getManualReviewCount();
+
+    if (mounted) {
+      setState(() {
+        _lastSyncTime = lastSync;
+        _backgroundSyncEnabled = isEnabled;
+        _pendingOperations = stats['pendingOperations'] ?? 0;
+        _conflictCount = conflictCount;
+      });
+    }
+  }
+
+  /// Trigger manual sync
+  Future<void> _triggerManualSync() async {
+    if (_isSyncing) return;
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      await _syncService.triggerManualSync();
+      await _loadSyncStatus();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              Get.locale?.languageCode == 'fil'
+                  ? 'Matagumpay na nag-sync ng data'
+                  : 'Data synced successfully',
+              style: const TextStyle(),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              Get.locale?.languageCode == 'fil'
+                  ? 'Nabigo ang pag-sync. Subukang muli.'
+                  : 'Sync failed. Please try again.',
+              style: const TextStyle(),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
+  }
+
+  /// Toggle background sync
+  Future<void> _toggleBackgroundSync(bool enabled) async {
+    setState(() {
+      _backgroundSyncEnabled = enabled;
+    });
+
+    try {
+      if (enabled) {
+        await _syncService.enableBackgroundSync();
+      } else {
+        await _syncService.disableBackgroundSync();
+      }
+    } catch (e) {
+      debugPrint('Error toggling background sync: $e');
+      // Revert state on error
+      setState(() {
+        _backgroundSyncEnabled = !enabled;
+      });
+    }
+  }
+
+  /// Format last sync time for display
+  String _getLastSyncText() {
+    if (_lastSyncTime == null) {
+      return Get.locale?.languageCode == 'fil'
+          ? 'Hindi pa nag-sync'
+          : 'Never synced';
+    }
+
+    final now = DateTime.now();
+    final difference = now.difference(_lastSyncTime!);
+
+    if (difference.inMinutes < 1) {
+      return Get.locale?.languageCode == 'fil' ? 'KakaSync lang' : 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return Get.locale?.languageCode == 'fil'
+          ? '${difference.inMinutes} minuto ang nakalipas'
+          : '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return Get.locale?.languageCode == 'fil'
+          ? '${difference.inHours} oras ang nakalipas'
+          : '${difference.inHours} hr ago';
+    } else {
+      return Get.locale?.languageCode == 'fil'
+          ? '${difference.inDays} araw ang nakalipas'
+          : '${difference.inDays} days ago';
+    }
   }
 
   @override
@@ -44,6 +171,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         backgroundColor: ColorConstant.whiteBackground,
         automaticallyImplyLeading: false,
         elevation: 0,
+        centerTitle: true,
         // Temporarily hidden since app doesn't have authentication yet
         // actions: [
         //   PopupMenuButton<String>(
@@ -76,10 +204,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         // ],
         title: Text(
           "profile".tr,
-          style: TextStyle(
+          style: JHTextStyles.h4.copyWith(
             color: ColorConstant.bluedark,
-            fontFamily: "Poppins",
-            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -124,12 +250,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             SizedBox(
               child: Row(
                 children: [
-                  ClipOval(
-                    child: Image.asset(
-                      ImageConstant.imgMaleAvatar,
-                      width: 60,
-                      height: 60,
-                    ),
+                  CachedAvatarImage.asset(
+                    ImageConstant.imgMaleAvatar,
+                    size: 60,
                   ),
                   const SizedBox(
                     width: 22,
@@ -137,7 +260,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   Text(
                     userModel.fullName!,
                     style: const TextStyle(
-                      fontFamily: "Poppins",
+                      
                       fontWeight: FontWeight.w500,
                       fontSize: 16,
                     ),
@@ -159,7 +282,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     "Edit",
                     style: TextStyle(
                       color: ColorConstant.whiteText,
-                      fontFamily: "Poppins",
+                      
                       fontSize: 15,
                     ),
                   ),
@@ -209,8 +332,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             children: [
               Text(
                 "Preferences",
-                style: AppStyle.txtPoppinsBold18Dark,
+                style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
               ),
+              // Build mode indicator (only visible in debug builds)
+              if (kDebugMode)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Build Mode: DEBUG ✓ (Debug Menu visible below)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green[900],
+                      
+                    ),
+                  ),
+                ),
               const SizedBox(
                 height: 22,
               ),
@@ -219,8 +360,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 children: [
                   Row(
                     children: [
-                      Image.asset(
-                        ImageConstant.iconOutlineNotification,
+                      CachedIconImage(
+                        assetPath: ImageConstant.iconOutlineNotification,
+                        size: 24,
                       ),
                       const SizedBox(
                         width: 22,
@@ -228,17 +370,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       Text(
                         "Pop-up Notification",
                         style: TextStyle(
-                          color: ColorConstant.bluedark.withOpacity(0.7),
+                          color: ColorConstant.bluedark.withValues(alpha: 0.7),
                           fontSize: 15.5,
-                          fontFamily: "Poppins",
+                          
                         ),
                       ),
                     ],
                   ),
                   Switch(
                     activeColor: ColorConstant.bluedark,
-                    inactiveThumbColor: ColorConstant.bluedark.withOpacity(0.8),
-                    inactiveTrackColor: ColorConstant.bluedark.withOpacity(0.5),
+                    inactiveThumbColor: ColorConstant.bluedark.withValues(alpha: 0.8),
+                    inactiveTrackColor: ColorConstant.bluedark.withValues(alpha: 0.5),
                     value: isNotification,
                     onChanged: (val) {
                       setState(() {
@@ -254,10 +396,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   Row(
                     children: [
                       SizedBox(
-                        child: Image.asset(
-                          ImageConstant.iconLanguage,
-                          width: 32,
-                          height: 32,
+                        child: CachedIconImage(
+                          assetPath: ImageConstant.iconLanguage,
+                          size: 32,
                         ),
                       ),
                       const SizedBox(
@@ -266,9 +407,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       Text(
                         "languages".tr,
                         style: TextStyle(
-                          color: ColorConstant.bluedark.withOpacity(0.7),
+                          color: ColorConstant.bluedark.withValues(alpha: 0.7),
                           fontSize: 15.5,
-                          fontFamily: "Poppins",
+                          
                         ),
                       ),
                     ],
@@ -291,7 +432,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: ColorConstant.trustBlue.withOpacity(0.1),
+                            color: ColorConstant.trustBlue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -306,21 +447,276 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               ? 'Privacy at Data'
                               : 'Privacy & Data',
                           style: TextStyle(
-                            color: ColorConstant.bluedark.withOpacity(0.7),
+                            color: ColorConstant.bluedark.withValues(alpha: 0.7),
                             fontSize: 15.5,
-                            fontFamily: "Poppins",
+                            
                           ),
                         ),
                       ],
                     ),
                     Icon(
                       Icons.arrow_forward_ios,
-                      color: ColorConstant.bluedark.withOpacity(0.5),
+                      color: ColorConstant.bluedark.withValues(alpha: 0.5),
                       size: 16,
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              // Data Sync menu item
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ColorConstant.bluedark.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: ColorConstant.reassuringGreen
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.sync,
+                                color: ColorConstant.reassuringGreen,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              Get.locale?.languageCode == 'fil'
+                                  ? 'Pag-sync ng Data'
+                                  : 'Data Sync',
+                              style: TextStyle(
+                                color: ColorConstant.bluedark,
+                                fontSize: 15.5,
+                                
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Sync Now button
+                        GestureDetector(
+                          onTap: _isSyncing ? null : _triggerManualSync,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isSyncing
+                                  ? Colors.grey[300]
+                                  : ColorConstant.bluedark,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: _isSyncing
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        ColorConstant.bluedark,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    Get.locale?.languageCode == 'fil'
+                                        ? 'Sync Ngayon'
+                                        : 'Sync Now',
+                                    style: TextStyle(
+                                      color: ColorConstant.whiteText,
+                                      fontSize: 12,
+                                      
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Last sync time
+                    Text(
+                      '${Get.locale?.languageCode == 'fil' ? 'Huling sync' : 'Last sync'}: ${_getLastSyncText()}',
+                      style: TextStyle(
+                        color: ColorConstant.bluedark.withValues(alpha: 0.6),
+                        fontSize: 12,
+                        
+                      ),
+                    ),
+                    // Pending operations count
+                    if (_pendingOperations > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '$_pendingOperations ${Get.locale?.languageCode == 'fil' ? 'nakabinbing operasyon' : 'pending operations'}',
+                          style: TextStyle(
+                            color: ColorConstant.warningColor,
+                            fontSize: 12,
+                            
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    // Background sync toggle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          Get.locale?.languageCode == 'fil'
+                              ? 'Awtomatikong Sync'
+                              : 'Background Sync',
+                          style: TextStyle(
+                            color: ColorConstant.bluedark.withValues(alpha: 0.7),
+                            fontSize: 14,
+                            
+                          ),
+                        ),
+                        Switch(
+                          activeColor: ColorConstant.reassuringGreen,
+                          value: _backgroundSyncEnabled,
+                          onChanged: _toggleBackgroundSync,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Conflict Resolution (only show if conflicts exist)
+              if (_conflictCount > 0) ...[
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () async {
+                    await Get.to(() => const ConflictResolutionScreen());
+                    // Refresh conflict count after returning
+                    await _loadSyncStatus();
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color:
+                                  ColorConstant.warningColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.sync_problem,
+                              color: ColorConstant.warningColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            Get.locale?.languageCode == 'fil'
+                                ? 'Ayusin ang Salungatan'
+                                : 'Resolve Conflicts',
+                            style: TextStyle(
+                              color: ColorConstant.bluedark.withValues(alpha: 0.7),
+                              fontSize: 15.5,
+                              
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorConstant.warningColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$_conflictCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            color: ColorConstant.bluedark.withValues(alpha: 0.5),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              // Debug Menu (temporarily enabled for all builds for testing)
+              if (true) ...[
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () {
+                    Get.to(() => const DebugMenuScreen());
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color:
+                                  ColorConstant.warningColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.bug_report,
+                              color: ColorConstant.warningColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Debug Menu',
+                            style: TextStyle(
+                              color: ColorConstant.bluedark.withValues(alpha: 0.7),
+                              fontSize: 15.5,
+                              
+                            ),
+                          ),
+                        ],
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        color: ColorConstant.bluedark.withValues(alpha: 0.5),
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -345,7 +741,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             "$rating $measure",
             style: TextStyle(
               color: ColorConstant.bluedark,
-              fontFamily: "Poppins",
+              
               fontWeight: FontWeight.w600,
               fontSize: 18,
             ),
@@ -355,7 +751,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           Text(
             "$title",
-            style: AppStyle.txtPoppinsWithDefaultSizeLightGrayW500,
+            style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.gray.withValues(alpha: 0.9), fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -405,9 +801,9 @@ class _CustomDropdownButtonState extends State<CustomDropdownButton> {
           child: Text(
             value,
             style: TextStyle(
-              fontFamily: "Poppins",
+              
               fontSize: 15.5,
-              color: ColorConstant.bluedark.withOpacity(0.7),
+              color: ColorConstant.bluedark.withValues(alpha: 0.7),
             ),
           ),
         );
@@ -430,7 +826,7 @@ class OtherWidget extends StatelessWidget {
         children: [
           Text(
             "other".tr,
-            style: AppStyle.txtPoppinsBold18Dark,
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
           ),
           const SizedBox(
             height: 22,
@@ -477,7 +873,7 @@ class AccountWidget extends StatelessWidget {
         children: [
           Text(
             "account".tr,
-            style: AppStyle.txtPoppinsBold18Dark,
+            style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
           ),
           const SizedBox(
             height: 22,
@@ -490,22 +886,25 @@ class AccountWidget extends StatelessWidget {
             onTap: onTapPersonalData,
           ),
           ItemCardWidget(
-            leadingIcon: Image.asset(
-              ImageConstant.iconContact,
+            leadingIcon: CachedIconImage(
+              assetPath: ImageConstant.iconContact,
+              size: 32,
             ),
             title: "contacts".tr,
             onTap: onTapEmergencyContact,
           ),
           ItemCardWidget(
-            leadingIcon: Image.asset(
-              ImageConstant.iconPieChart,
+            leadingIcon: CachedIconImage(
+              assetPath: ImageConstant.iconPieChart,
+              size: 32,
             ),
             title: "history".tr,
             onTap: onTapAcitvityHistory,
           ),
           ItemCardWidget(
-            leadingIcon: Image.asset(
-              ImageConstant.iconOutlineNotification,
+            leadingIcon: CachedIconImage(
+              assetPath: ImageConstant.iconOutlineNotification,
+              size: 32,
             ),
             title: "remainders".tr,
             onTap: onTapSetRemainder,
@@ -544,9 +943,9 @@ class ItemCardWidget extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    color: ColorConstant.bluedark.withOpacity(0.7),
+                    color: ColorConstant.bluedark.withValues(alpha: 0.7),
                     fontSize: 15.5,
-                    fontFamily: "Poppins",
+                    
                   ),
                 ),
               ],
@@ -554,7 +953,7 @@ class ItemCardWidget extends StatelessWidget {
             Icon(
               Icons.arrow_forward_ios,
               size: 22,
-              color: ColorConstant.bluedark.withOpacity(0.5),
+              color: ColorConstant.bluedark.withValues(alpha: 0.5),
             ),
           ],
         ),

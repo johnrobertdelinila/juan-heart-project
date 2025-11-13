@@ -1,81 +1,82 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:juan_heart/themes/jh_colors.dart';
 
 class ColorConstant {
-  static Color lightDarkBlue = fromHex("#92A3FD");
+  static Color lightDarkBlue = JHColors.info;
 
-  static Color lightSkyBlue = fromHex("#9DCEFF");
+  static Color lightSkyBlue = JHColors.infoLight;
 
-  static Color lightpink = fromHex("#EEA4CE");
+  static Color lightpink = JHColors.heartRedLight;
 
-  static Color lightPurple = fromHex("#C58BF2");
+  static Color lightPurple = JHColors.chart3;
 
-  static Color bluedark = fromHex('#21243D');
+  static Color bluedark = JHColors.midnightBlue;
 
-  static Color bluelessdark = fromHex('#2d3152');
+  static Color bluelessdark = JHColors.slate800;
 
-  static Color whiteBackground = fromHex("#ffffff");
+  static Color whiteBackground = JHColors.cloudWhite;
 
-  static Color whiteText = fromHex("#ffffff");
+  static Color whiteText = JHColors.cloudWhite;
 
-  static Color warningColor = fromHex("#FBDC8E");
+  static Color warningColor = JHColors.warningLight;
 
-  static Color pupuleColor = fromHex("#7042C9");
+  static Color pupuleColor = JHColors.infoDark;
 
-  static Color greenColor = fromHex("#0DB1AD");
+  static Color greenColor = JHColors.success;
 
-  static Color blueColor = fromHex("#197BD2");
+  static Color blueColor = JHColors.infoDark;
 
-  static Color lightRed = fromHex("#FC6565");
+  static Color lightRed = JHColors.heartRed;
 
-  static Color lightGray = fromHex("#C4C1C1");
+  static Color lightGray = JHColors.slate300;
 
-  static Color gray = fromHex("#9F9F9F");
+  static Color gray = JHColors.slate500;
 
-  static Color bluegray9006c = fromHex('#6c20233c');
+  static Color bluegray9006c = JHColors.slate900.withValues(alpha: 0.42);
 
-  static Color lightBlue = fromHex('#1353CF');
+  static Color lightBlue = JHColors.infoDark;
 
-  static Color shadowColorBase = fromHex('#233565');
-  static Color shadowColor = shadowColorBase.withOpacity(0.08);
+  static Color shadowColorBase = JHColors.slate900;
+  static Color shadowColor = shadowColorBase.withValues(alpha: 0.08);
 
-  static Color cardShadowColor = fromHex('#000000').withOpacity(0.02);
+  static Color cardShadowColor = JHColors.slate900.withValues(alpha: 0.02);
 
   // Additional colors for medical assessment
-  static Color lightBlueBackground = fromHex('#E3F2FD');
-  static Color redLightBackground = fromHex('#FFEBEE');
-  static Color redAccent = fromHex('#F44336');
+  static Color lightBlueBackground = JHColors.infoLight;
+  static Color redLightBackground = JHColors.dangerLight;
+  static Color redAccent = JHColors.danger;
   
   // Emotional reassurance colors - warm, calming tones
-  static Color calmingBlue = fromHex('#4A90E2');
-  static Color trustBlue = fromHex('#2C5F99');
-  static Color reassuringGreen = fromHex('#10B981');
-  static Color warmBeige = fromHex('#F5F1ED');
-  static Color softWhite = fromHex('#FAFAFA');
-  static Color gentleGray = fromHex('#6B7280');
+  static Color calmingBlue = JHColors.info;
+  static Color trustBlue = JHColors.midnightBlue;
+  static Color reassuringGreen = JHColors.success;
+  static Color warmBeige = JHColors.slate50;
+  static Color softWhite = JHColors.softGray;
+  static Color gentleGray = JHColors.slate600;
   
   // Filipino healthcare colors
-  static Color phcRed = fromHex('#C62828'); // Philippine Heart Center red
-  static Color phcBlue = fromHex('#1565C0');
-  static Color barangayGreen = fromHex('#059669');
+  static Color phcRed = JHColors.heartRed; // Philippine Heart Center red
+  static Color phcBlue = JHColors.infoDark;
+  static Color barangayGreen = JHColors.successDark;
   
   // Gradient colors for emotional backgrounds
-  static Color gradientBlueStart = fromHex('#E0F2FE');
-  static Color gradientBlueEnd = fromHex('#FFFFFF');
-  static Color gradientWarmStart = fromHex('#FEF3C7');
-  static Color gradientWarmEnd = fromHex('#FFFFFF');
+  static Color gradientBlueStart = JHColors.infoLight;
+  static Color gradientBlueEnd = JHColors.cloudWhite;
+  static Color gradientWarmStart = JHColors.warningLight;
+  static Color gradientWarmEnd = JHColors.cloudWhite;
   
   // Badge and indicator colors
-  static Color emergencyBadge = fromHex('#DC2626');
-  static Color urgentBadge = fromHex('#F59E0B');
-  static Color routineBadge = fromHex('#3B82F6');
-  static Color verifiedBadge = fromHex('#10B981');
+  static Color emergencyBadge = JHColors.danger;
+  static Color urgentBadge = JHColors.warning;
+  static Color routineBadge = JHColors.info;
+  static Color verifiedBadge = JHColors.success;
   
   // Card and shadow colors with enhanced depth
-  static Color cardBackground = fromHex('#FFFFFF');
-  static Color cardBorder = fromHex('#E5E7EB');
-  static Color cardShadowLight = fromHex('#000000').withOpacity(0.04);
-  static Color cardShadowMedium = fromHex('#000000').withOpacity(0.08);
+  static Color cardBackground = JHColors.cloudWhite;
+  static Color cardBorder = JHColors.slate200;
+  static Color cardShadowLight = JHColors.slate900.withValues(alpha: 0.04);
+  static Color cardShadowMedium = JHColors.slate900.withValues(alpha: 0.08);
   
   // Color aliases for referral system
   static Color get white => whiteBackground;

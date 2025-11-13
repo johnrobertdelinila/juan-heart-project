@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 /// Firebase Analytics Service
 ///
 /// Wrapper service for Firebase Analytics with privacy controls
@@ -42,9 +43,9 @@ class FirebaseAnalyticsService {
       await _setDefaultUserProperties();
 
       _isInitialized = true;
-      print('✅ Firebase Analytics initialized');
+      debugPrint('✅ Firebase Analytics initialized');
     } catch (e) {
-      print('❌ Failed to initialize Firebase Analytics: $e');
+      debugPrint('❌ Failed to initialize Firebase Analytics: $e');
     }
   }
 
@@ -65,7 +66,7 @@ class FirebaseAnalyticsService {
       //   value: 'en', // Get from locale
       // );
     } catch (e) {
-      print('Failed to set user properties: $e');
+      debugPrint('Failed to set user properties: $e');
     }
   }
 
@@ -96,9 +97,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: Assessment completed - $riskCategory ($riskScore)');
+      debugPrint('📊 Analytics: Assessment completed - $riskCategory ($riskScore)');
     } catch (e) {
-      print('Failed to log assessment: $e');
+      debugPrint('Failed to log assessment: $e');
     }
   }
 
@@ -122,9 +123,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: Referral generated - $facilityType');
+      debugPrint('📊 Analytics: Referral generated - $facilityType');
     } catch (e) {
-      print('Failed to log referral: $e');
+      debugPrint('Failed to log referral: $e');
     }
   }
 
@@ -146,9 +147,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: PDF exported - $exportType');
+      debugPrint('📊 Analytics: PDF exported - $exportType');
     } catch (e) {
-      print('Failed to log PDF export: $e');
+      debugPrint('Failed to log PDF export: $e');
     }
   }
 
@@ -170,9 +171,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: CSV exported - $exportType');
+      debugPrint('📊 Analytics: CSV exported - $exportType');
     } catch (e) {
-      print('Failed to log CSV export: $e');
+      debugPrint('Failed to log CSV export: $e');
     }
   }
 
@@ -190,9 +191,9 @@ class FirebaseAnalyticsService {
       //   screenClass: screenClass ?? screenName,
       // );
 
-      print('📊 Analytics: Screen view - $screenName');
+      debugPrint('📊 Analytics: Screen view - $screenName');
     } catch (e) {
-      print('Failed to log screen view: $e');
+      debugPrint('Failed to log screen view: $e');
     }
   }
 
@@ -214,9 +215,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: Feature used - $featureName');
+      debugPrint('📊 Analytics: Feature used - $featureName');
     } catch (e) {
-      print('Failed to log feature usage: $e');
+      debugPrint('Failed to log feature usage: $e');
     }
   }
 
@@ -238,9 +239,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: Privacy preference changed - $preferenceName: $newValue');
+      debugPrint('📊 Analytics: Privacy preference changed - $preferenceName: $newValue');
     } catch (e) {
-      print('Failed to log privacy change: $e');
+      debugPrint('Failed to log privacy change: $e');
     }
   }
 
@@ -260,9 +261,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: Data deletion requested - $recordsDeleted records');
+      debugPrint('📊 Analytics: Data deletion requested - $recordsDeleted records');
     } catch (e) {
-      print('Failed to log data deletion: $e');
+      debugPrint('Failed to log data deletion: $e');
     }
   }
 
@@ -274,9 +275,9 @@ class FirebaseAnalyticsService {
       // Uncomment when firebase_analytics is added:
       // await _analytics.logAppOpen();
 
-      print('📊 Analytics: App opened');
+      debugPrint('📊 Analytics: App opened');
     } catch (e) {
-      print('Failed to log app open: $e');
+      debugPrint('Failed to log app open: $e');
     }
   }
 
@@ -296,9 +297,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: Search - $searchTerm in $searchCategory');
+      debugPrint('📊 Analytics: Search - $searchTerm in $searchCategory');
     } catch (e) {
-      print('Failed to log search: $e');
+      debugPrint('Failed to log search: $e');
     }
   }
 
@@ -320,9 +321,9 @@ class FirebaseAnalyticsService {
       //   },
       // );
 
-      print('📊 Analytics: User engagement - $feature (${engagementTime.inSeconds}s)');
+      debugPrint('📊 Analytics: User engagement - $feature (${engagementTime.inSeconds}s)');
     } catch (e) {
-      print('Failed to log user engagement: $e');
+      debugPrint('Failed to log user engagement: $e');
     }
   }
 
@@ -334,9 +335,9 @@ class FirebaseAnalyticsService {
       // Uncomment when firebase_analytics is added:
       // await _analytics.setUserId(id: userId);
 
-      print('📊 Analytics: User ID set');
+      debugPrint('📊 Analytics: User ID set');
     } catch (e) {
-      print('Failed to set user ID: $e');
+      debugPrint('Failed to set user ID: $e');
     }
   }
 
@@ -354,9 +355,9 @@ class FirebaseAnalyticsService {
       //   value: value,
       // );
 
-      print('📊 Analytics: User property set - $name: $value');
+      debugPrint('📊 Analytics: User property set - $name: $value');
     } catch (e) {
-      print('Failed to set user property: $e');
+      debugPrint('Failed to set user property: $e');
     }
   }
 
@@ -366,9 +367,9 @@ class FirebaseAnalyticsService {
       // Uncomment when firebase_analytics is added:
       // await _analytics.resetAnalyticsData();
 
-      print('📊 Analytics: Data reset');
+      debugPrint('📊 Analytics: Data reset');
     } catch (e) {
-      print('Failed to reset analytics: $e');
+      debugPrint('Failed to reset analytics: $e');
     }
   }
 }

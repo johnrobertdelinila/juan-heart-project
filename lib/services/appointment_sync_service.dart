@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
-import 'package:intl/intl.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/authenticated_http_client.dart';
 import '../models/appointment_model.dart';
+import 'crash_reporting_service.dart';
 
 /// Service for syncing appointments to backend database.
 ///
@@ -30,9 +31,14 @@ class AppointmentSyncService {
       // Transform appointment to backend format
       final payload = _transformToBackendFormat(appointment);
 
-      print('🔄 Syncing appointment to backend...');
-      print('📦 Appointment ID: ${appointment.id}');
-      print('🏥 Facility: ${appointment.facilityName}');
+      debugPrint('🔄 Syncing appointment to backend...');
+      debugPrint('📦 Appointment ID: ${appointment.id}');
+      debugPrint('🏥 Facility: ${appointment.facilityName}');
+      debugPrint('🆔 Mobile Facility ID: ${appointment.facilityId}');
+      debugPrint('🔢 Backend Facility ID: ${payload['facility_id']}');
+      if (payload['facility_id'] == null) {
+        debugPrint('⚠️ WARNING: No backend ID mapping! Backend will try facility_name lookup.');
+      }
 
       final response = await _httpClient.post(
         url,
@@ -46,8 +52,8 @@ class AppointmentSyncService {
         if (data['success'] == true) {
           final appointmentData = data['data'];
 
-          print('✅ Appointment synced successfully!');
-          print('🆔 Backend ID: ${appointmentData['id']}');
+          debugPrint('✅ Appointment synced successfully!');
+          debugPrint('🆔 Backend ID: ${appointmentData['id']}');
 
           return {
             'success': true,
@@ -60,23 +66,43 @@ class AppointmentSyncService {
 
       // Handle error response
       final errorData = jsonDecode(response.body);
-      final errorMessage = errorData['message'] ?? 'Unknown error';
+      final backendMessage = errorData['message'] ?? 'Unknown error';
+      final errorInfo = categorizeError(backendMessage, statusCode: response.statusCode);
 
-      print('❌ Sync failed: $errorMessage');
+      debugPrint('❌ Sync failed (${errorInfo['category']}): ${errorInfo['userMessage']}');
+      debugPrint('📋 Technical details: ${errorInfo['technicalDetails']}');
 
       return {
         'success': false,
-        'message': errorMessage,
-        'error': response.body,
+        'message': errorInfo['userMessage'],
+        'category': errorInfo['category'],
+        'technicalDetails': errorInfo['technicalDetails'],
         'statusCode': response.statusCode,
       };
-    } catch (e) {
-      print('❌ Exception during sync: $e');
+    } catch (e, stackTrace) {
+      final errorInfo = categorizeError(e);
+
+      debugPrint('❌ Exception during sync (${errorInfo['category']}): ${errorInfo['userMessage']}');
+      debugPrint('📋 Technical details: ${errorInfo['technicalDetails']}');
+
+      // Report to Crashlytics
+      await CrashReportingService.instance.logError(
+        error: e,
+        stackTrace: stackTrace,
+        reason: 'Appointment sync failed',
+        fatal: false,
+        additionalInfo: {
+          'appointment_id': appointment.id,
+          'facility_name': appointment.facilityName,
+          'error_category': errorInfo['category'],
+        },
+      );
 
       return {
         'success': false,
-        'message': 'Error syncing appointment',
-        'error': e.toString(),
+        'message': errorInfo['userMessage'],
+        'category': errorInfo['category'],
+        'technicalDetails': errorInfo['technicalDetails'],
       };
     }
   }
@@ -92,6 +118,9 @@ class AppointmentSyncService {
       appointment.appointmentTime,
     );
 
+    // Map facility name to backend ID (critical for sync)
+    final backendFacilityId = _mapFacilityNameToBackendId(appointment.facilityName);
+
     return {
       // Mobile tracking
       'mobile_appointment_id': appointment.id,
@@ -102,8 +131,8 @@ class AppointmentSyncService {
       'patient_phone': appointment.contactNumber ?? 'N/A',
       'patient_email': null, // Not captured in mobile app currently
 
-      // Facility (send name for backend to resolve if needed)
-      'facility_id': int.tryParse(appointment.facilityId) ?? null,
+      // Facility - use backend ID mapping for known facilities
+      'facility_id': backendFacilityId,
       'facility_name': appointment.facilityName,
 
       // Doctor (optional)
@@ -136,6 +165,43 @@ class AppointmentSyncService {
       // Mobile timestamps
       'mobile_created_at': appointment.createdAt.toIso8601String(),
     };
+  }
+
+  /// Map mobile facility name to backend facility ID.
+  ///
+  /// This is a critical mapping layer that translates mock facility names
+  /// to actual backend database IDs. Required because mobile app uses
+  /// 50 mock facilities while backend has only 5 seeded facilities.
+  ///
+  /// Backend facilities (from HealthcareFacilitySeeder.php):
+  /// 1. Philippine Heart Center (ID: 1)
+  /// 2. Philippine General Hospital (ID: 2)
+  /// 3. Vicente Sotto Memorial Medical Center (ID: 3)
+  /// 4. Southern Philippines Medical Center (ID: 4)
+  /// 5. Quezon City General Hospital (ID: 5)
+  ///
+  /// Returns backend ID if match found, null otherwise.
+  /// If null, backend will attempt facility_name lookup (may fail).
+  static int? _mapFacilityNameToBackendId(String facilityName) {
+    final nameLower = facilityName.trim().toLowerCase();
+
+    // Map known facilities to backend IDs
+    if (nameLower.contains('philippine heart center')) {
+      return 1;
+    } else if (nameLower.contains('philippine general hospital')) {
+      return 2;
+    } else if (nameLower.contains('vicente sotto')) {
+      return 3;
+    } else if (nameLower.contains('southern philippines medical')) {
+      return 4;
+    } else if (nameLower.contains('quezon city general')) {
+      return 5;
+    }
+
+    // No mapping found - backend will try facility_name lookup
+    debugPrint('⚠️ No backend ID mapping for facility: $facilityName');
+    debugPrint('📋 Backend will attempt facility_name lookup (may fail)');
+    return null;
   }
 
   /// Split patient name into first and last names.
@@ -258,7 +324,19 @@ class AppointmentSyncService {
         'message': 'Failed to update appointment status',
         'error': response.body,
       };
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Report to Crashlytics
+      await CrashReportingService.instance.logError(
+        error: e,
+        stackTrace: stackTrace,
+        reason: 'Appointment status update failed',
+        fatal: false,
+        additionalInfo: {
+          'backend_id': backendId,
+          'new_status': newStatus.toString(),
+        },
+      );
+
       return {
         'success': false,
         'message': 'Error updating appointment status',
@@ -296,7 +374,19 @@ class AppointmentSyncService {
         'message': 'Failed to cancel appointment',
         'error': response.body,
       };
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Report to Crashlytics
+      await CrashReportingService.instance.logError(
+        error: e,
+        stackTrace: stackTrace,
+        reason: 'Appointment cancellation failed',
+        fatal: false,
+        additionalInfo: {
+          'backend_id': backendId,
+          'cancellation_reason': reason,
+        },
+      );
+
       return {
         'success': false,
         'message': 'Error cancelling appointment',
@@ -342,12 +432,106 @@ class AppointmentSyncService {
         'message': 'Failed to reschedule appointment',
         'error': response.body,
       };
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Report to Crashlytics
+      await CrashReportingService.instance.logError(
+        error: e,
+        stackTrace: stackTrace,
+        reason: 'Appointment reschedule failed',
+        fatal: false,
+        additionalInfo: {
+          'backend_id': backendId,
+          'new_date': newDate.toIso8601String(),
+          'new_time': newTime,
+        },
+      );
+
       return {
         'success': false,
         'message': 'Error rescheduling appointment',
         'error': e.toString(),
       };
     }
+  }
+
+  /// Categorize sync error and return user-friendly message.
+  ///
+  /// Takes error object/message and HTTP status code (if available)
+  /// and returns structured error information for display and logging.
+  static Map<String, dynamic> categorizeError(dynamic error, {int? statusCode}) {
+    String category;
+    String userMessage;
+    String technicalDetails;
+
+    // Categorize based on status code
+    if (statusCode != null) {
+      switch (statusCode) {
+        case 401:
+          category = 'authentication';
+          userMessage = 'Authentication failed. Please try again.';
+          technicalDetails = 'HTTP 401: Unauthorized access to backend API';
+          break;
+        case 404:
+          category = 'not_found';
+          userMessage = 'Facility or doctor not found in system.';
+          technicalDetails = 'HTTP 404: Resource not found on backend';
+          break;
+        case 422:
+          category = 'validation';
+          userMessage = 'Invalid appointment data. Please check your information.';
+          technicalDetails = 'HTTP 422: Validation error from backend';
+          break;
+        case 500:
+        case 502:
+        case 503:
+          category = 'server_error';
+          userMessage = 'Backend server error. Please try again later.';
+          technicalDetails = 'HTTP $statusCode: Backend server error';
+          break;
+        default:
+          category = 'unknown';
+          userMessage = 'An unexpected error occurred (Code: $statusCode).';
+          technicalDetails = 'HTTP $statusCode: Unknown error';
+      }
+    }
+    // Categorize based on error content
+    else {
+      final errorString = error.toString().toLowerCase();
+
+      if (errorString.contains('connection refused') ||
+          errorString.contains('failed host lookup') ||
+          errorString.contains('network unreachable')) {
+        category = 'connection';
+        userMessage = 'Cannot connect to backend. Please check your network.';
+        technicalDetails = 'Connection refused or network unreachable';
+      } else if (errorString.contains('timeout') ||
+          errorString.contains('timed out')) {
+        category = 'timeout';
+        userMessage = 'Request timed out. Please try again.';
+        technicalDetails = 'Request exceeded 15-second timeout';
+      } else if (errorString.contains('no connection') ||
+          errorString.contains('offline')) {
+        category = 'offline';
+        userMessage = 'No internet connection. Will retry when online.';
+        technicalDetails = 'Device is offline';
+      } else if (errorString.contains('format') ||
+          errorString.contains('parsing') ||
+          errorString.contains('json')) {
+        category = 'data_format';
+        userMessage = 'Invalid data format received from backend.';
+        technicalDetails = 'JSON parsing or format error';
+      } else {
+        category = 'unknown';
+        userMessage = 'An unexpected error occurred. Please try again.';
+        technicalDetails = error.toString();
+      }
+    }
+
+    return {
+      'category': category,
+      'userMessage': userMessage,
+      'technicalDetails': technicalDetails,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
   }
 }

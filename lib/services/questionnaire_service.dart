@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:juan_heart/models/questionnaire_model.dart';
@@ -24,7 +25,7 @@ class QuestionnaireService {
               PreConsultationQuestionnaire.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Error loading questionnaires: $e');
+      debugPrint('Error loading questionnaires: $e');
       return [];
     }
   }
@@ -78,10 +79,10 @@ class QuestionnaireService {
       }
 
       await _saveQuestionnairesList(questionnaires);
-      print('✅ Questionnaire saved: ${questionnaire.id}');
+      debugPrint('✅ Questionnaire saved: ${questionnaire.id}');
       return true;
     } catch (e) {
-      print('❌ Error saving questionnaire: $e');
+      debugPrint('❌ Error saving questionnaire: $e');
       return false;
     }
   }
@@ -141,7 +142,7 @@ class QuestionnaireService {
       await _saveQuestionnairesList(questionnaires);
       return true;
     } catch (e) {
-      print('❌ Error updating answer: $e');
+      debugPrint('❌ Error updating answer: $e');
       return false;
     }
   }
@@ -164,7 +165,7 @@ class QuestionnaireService {
 
       for (final question in requiredQuestions) {
         if (!questionnaire.hasAnswer(question.id)) {
-          print('❌ Missing required answer for: ${question.id}');
+          debugPrint('❌ Missing required answer for: ${question.id}');
           return false;
         }
       }
@@ -177,10 +178,10 @@ class QuestionnaireService {
       );
 
       await _saveQuestionnairesList(questionnaires);
-      print('✅ Questionnaire submitted: $questionnaireId');
+      debugPrint('✅ Questionnaire submitted: $questionnaireId');
       return true;
     } catch (e) {
-      print('❌ Error submitting questionnaire: $e');
+      debugPrint('❌ Error submitting questionnaire: $e');
       return false;
     }
   }
@@ -192,10 +193,10 @@ class QuestionnaireService {
       questionnaires.removeWhere((q) => q.id == questionnaireId);
 
       await _saveQuestionnairesList(questionnaires);
-      print('✅ Questionnaire deleted: $questionnaireId');
+      debugPrint('✅ Questionnaire deleted: $questionnaireId');
       return true;
     } catch (e) {
-      print('❌ Error deleting questionnaire: $e');
+      debugPrint('❌ Error deleting questionnaire: $e');
       return false;
     }
   }
@@ -277,10 +278,10 @@ class QuestionnaireService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_storageKey);
-      print('✅ All questionnaires cleared');
+      debugPrint('✅ All questionnaires cleared');
       return true;
     } catch (e) {
-      print('❌ Error clearing questionnaires: $e');
+      debugPrint('❌ Error clearing questionnaires: $e');
       return false;
     }
   }

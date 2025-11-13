@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service for managing user consent for AI assessment features
@@ -33,15 +35,15 @@ class AIConsentService {
       // Check if consent version is current
       final consentVersion = prefs.getInt(_consentVersionKey) ?? 0;
       if (consentVersion < currentConsentVersion) {
-        print('⚠️ Consent version outdated. Re-consent required.');
+        debugPrint('⚠️ Consent version outdated. Re-consent required.');
         return false;
       }
 
-      print('✅ User has valid AI assessment consent');
+      debugPrint('✅ User has valid AI assessment consent');
       return true;
 
     } catch (e) {
-      print('❌ Failed to check AI consent: $e');
+      debugPrint('❌ Failed to check AI consent: $e');
       return false; // Fail closed for privacy
     }
   }
@@ -61,7 +63,7 @@ class AIConsentService {
         DateTime.now().toIso8601String(),
       );
 
-      print('✅ AI assessment consent granted');
+      debugPrint('✅ AI assessment consent granted');
 
       // Track analytics (if enabled)
       _trackConsentEvent('granted');
@@ -69,7 +71,7 @@ class AIConsentService {
       return true;
 
     } catch (e) {
-      print('❌ Failed to grant AI consent: $e');
+      debugPrint('❌ Failed to grant AI consent: $e');
       return false;
     }
   }
@@ -86,7 +88,7 @@ class AIConsentService {
       await prefs.remove(_consentTimestampKey);
       await prefs.remove(_consentVersionKey);
 
-      print('🚫 AI assessment consent revoked');
+      debugPrint('🚫 AI assessment consent revoked');
 
       // Track analytics
       _trackConsentEvent('revoked');
@@ -94,7 +96,7 @@ class AIConsentService {
       return true;
 
     } catch (e) {
-      print('❌ Failed to revoke AI consent: $e');
+      debugPrint('❌ Failed to revoke AI consent: $e');
       return false;
     }
   }
@@ -112,7 +114,7 @@ class AIConsentService {
       return DateTime.parse(timestamp);
 
     } catch (e) {
-      print('❌ Failed to get consent timestamp: $e');
+      debugPrint('❌ Failed to get consent timestamp: $e');
       return null;
     }
   }
@@ -152,7 +154,7 @@ class AIConsentService {
   static void _trackConsentEvent(String action) {
     try {
       // Integration with AnalyticsService would go here
-      print('📊 Consent event tracked: $action');
+      debugPrint('📊 Consent event tracked: $action');
 
       // Example:
       // AnalyticsService.logEvent(
@@ -164,7 +166,7 @@ class AIConsentService {
       // );
 
     } catch (e) {
-      print('❌ Failed to track consent event: $e');
+      debugPrint('❌ Failed to track consent event: $e');
     }
   }
 
@@ -177,10 +179,10 @@ class AIConsentService {
       await prefs.remove(_consentTimestampKey);
       await prefs.remove(_consentVersionKey);
 
-      print('🗑️ AI consent data cleared');
+      debugPrint('🗑️ AI consent data cleared');
 
     } catch (e) {
-      print('❌ Failed to clear consent data: $e');
+      debugPrint('❌ Failed to clear consent data: $e');
     }
   }
 

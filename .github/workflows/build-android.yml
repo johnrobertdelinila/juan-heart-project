@@ -1,0 +1,254 @@
+name: Build Android Release
+
+# Trigger on tags for release builds
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-beta.*'
+      - 'v*.*.*-alpha.*'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'apk'
+        type: choice
+        options:
+          - apk
+          - appbundle
+          - both
+
+jobs:
+  build-release:
+    name: Build Android Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version calculation
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Create .env file
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_NUMBER: ${{ secrets.TWILIO_NUMBER }}
+          GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY }}
+          EDUCATIONAL_CONTENT_API_URL: ${{ secrets.EDUCATIONAL_CONTENT_API_URL }}
+        run: |
+          cat > .env <<EOF
+          ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+          AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+          TWILIO_NUMBER=${TWILIO_NUMBER}
+          GENKIT_BACKEND_URL=https://us-central1-juan-heart-project.cloudfunctions.net/assessHeartRiskHttp
+          FEATURE_FLAGS_URL=
+          EDUCATIONAL_CONTENT_API_URL=${EDUCATIONAL_CONTENT_API_URL}
+          GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
+          EOF
+
+      - name: Decode keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/juan-heart-release.jks
+
+      - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${STORE_PASSWORD}
+          keyPassword=${KEY_PASSWORD}
+          keyAlias=${KEY_ALIAS}
+          storeFile=juan-heart-release.jks
+          EOF
+
+      - name: Get version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          fi
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION+$BUILD_NUMBER"
+
+      - name: Update version in pubspec.yaml
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD_NUMBER="${{ steps.version.outputs.build_number }}"
+          sed -i "s/^version: .*/version: $VERSION+$BUILD_NUMBER/" pubspec.yaml
+          echo "✅ Updated version to $VERSION+$BUILD_NUMBER"
+
+      - name: Build APK
+        if: github.event.inputs.build_type == 'apk' || github.event.inputs.build_type == 'both' || github.event_name == 'push'
+        run: |
+          flutter build apk --release --split-per-abi
+          echo "✅ APK build complete"
+
+      - name: Build App Bundle
+        if: github.event.inputs.build_type == 'appbundle' || github.event.inputs.build_type == 'both'
+        run: |
+          flutter build appbundle --release
+          echo "✅ App Bundle build complete"
+
+      - name: Verify ProGuard mapping exists
+        run: |
+          if [ -f build/app/outputs/mapping/release/mapping.txt ]; then
+            echo "✅ ProGuard mapping file found"
+            ls -lh build/app/outputs/mapping/release/mapping.txt
+          else
+            echo "⚠️  ProGuard mapping file not found"
+          fi
+
+      - name: Upload symbols to Firebase Crashlytics
+        run: |
+          if [ -f build/app/outputs/mapping/release/mapping.txt ]; then
+            echo "📤 Uploading ProGuard mapping to Firebase Crashlytics"
+            # Firebase Crashlytics will automatically pick up mapping files
+            # when the app is uploaded to Google Play Console
+            echo "✅ Mapping file ready for upload"
+          fi
+
+      - name: Sign and verify APKs
+        if: github.event.inputs.build_type == 'apk' || github.event.inputs.build_type == 'both' || github.event_name == 'push'
+        run: |
+          echo "🔐 Verifying APK signatures..."
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+            if [ -f "$apk" ]; then
+              echo "Checking: $apk"
+              $ANDROID_HOME/build-tools/*/apksigner verify --print-certs "$apk"
+            fi
+          done
+          echo "✅ All APKs signed correctly"
+
+      - name: Calculate APK sizes
+        if: github.event.inputs.build_type == 'apk' || github.event.inputs.build_type == 'both' || github.event_name == 'push'
+        run: |
+          echo "📦 APK Sizes:"
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+            if [ -f "$apk" ]; then
+              SIZE=$(du -h "$apk" | cut -f1)
+              NAME=$(basename "$apk")
+              echo "  - $NAME: $SIZE"
+            fi
+          done
+
+      - name: Upload APK artifacts
+        if: github.event.inputs.build_type == 'apk' || github.event.inputs.build_type == 'both' || github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk-${{ steps.version.outputs.version }}
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+
+      - name: Upload App Bundle artifacts
+        if: github.event.inputs.build_type == 'appbundle' || github.event.inputs.build_type == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-aab-${{ steps.version.outputs.version }}
+          path: |
+            build/app/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Upload ProGuard mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: proguard-mapping-${{ steps.version.outputs.version }}
+          path: |
+            build/app/outputs/mapping/release/mapping.txt
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/mapping/release/mapping.txt
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## Juan Heart Mobile v${{ steps.version.outputs.version }}
+
+            **Build Number:** ${{ steps.version.outputs.build_number }}
+            **Release Date:** ${{ github.event.head_commit.timestamp }}
+
+            ### 📦 Downloads
+
+            **APK Files** (install directly on Android devices):
+            - `app-armeabi-v7a-release.apk` - For 32-bit ARM devices (older phones)
+            - `app-arm64-v8a-release.apk` - For 64-bit ARM devices (most modern phones)
+            - `app-x86_64-release.apk` - For x86-64 devices (emulators, some tablets)
+            - `app-release.apk` - Universal APK (works on all devices, larger size)
+
+            ### 🔒 Security
+
+            - Code obfuscated with ProGuard
+            - ProGuard mapping file included for crash debugging
+            - Signed with production keystore
+
+            ### 📋 Installation Instructions
+
+            **For Beta Testers:**
+            1. Download the appropriate APK for your device
+            2. Enable "Install from Unknown Sources" in Android settings
+            3. Open the APK file to install
+            4. Launch "Juan Heart" app
+
+            **For Production:**
+            - Install from Google Play Store (coming soon)
+
+            ### 🐛 Bug Reports
+
+            Please report issues at: https://github.com/${{ github.repository }}/issues
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build summary
+        run: |
+          echo "## 📦 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Number:** ${{ steps.version.outputs.build_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${GITHUB_REF#refs/heads/}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ github.event.inputs.build_type }}" == "apk" ] || [ "${{ github.event.inputs.build_type }}" == "both" ] || [ "${{ github.event_name }}" == "push" ]; then
+            echo "✅ APK builds uploaded" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ github.event.inputs.build_type }}" == "appbundle" ] || [ "${{ github.event.inputs.build_type }}" == "both" ]; then
+            echo "✅ App Bundle uploaded" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "✅ ProGuard mapping uploaded" >> $GITHUB_STEP_SUMMARY

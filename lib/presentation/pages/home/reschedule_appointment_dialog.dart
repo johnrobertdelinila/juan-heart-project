@@ -5,6 +5,9 @@ import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/appointment_model.dart';
 import 'package:juan_heart/services/appointment_service.dart';
 import 'package:juan_heart/services/appointment_validation_service.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 class RescheduleAppointmentDialog extends StatefulWidget {
   final Appointment appointment;
@@ -164,10 +167,8 @@ class _RescheduleAppointmentDialogState
                 const SizedBox(width: 12),
                 Text(
                   isFilipino ? 'Na-reschedule!' : 'Rescheduled!',
-                  style: TextStyle(
+                  style: JHTextStyles.h5.copyWith(
                     color: Colors.green[700],
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Poppins',
                   ),
                 ),
               ],
@@ -180,7 +181,7 @@ class _RescheduleAppointmentDialogState
                   : 'Your appointment has been successfully rescheduled.\n\n'
                       'New date: ${DateFormat('MMMM d, yyyy').format(_selectedDate)}\n'
                       'New time: $_selectedTime',
-              style: const TextStyle(fontSize: 14, height: 1.5),
+              style: JHTextStyles.bodySmall.copyWith(height: 1.5),
             ),
             actions: [
               TextButton(
@@ -190,10 +191,8 @@ class _RescheduleAppointmentDialogState
                 },
                 child: Text(
                   isFilipino ? 'OK' : 'OK',
-                  style: TextStyle(
+                  style: JHTextStyles.button.copyWith(
                     color: ColorConstant.lightRed,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
                   ),
                 ),
               ),
@@ -236,17 +235,15 @@ class _RescheduleAppointmentDialogState
       appBar: AppBar(
         backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.close, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
         title: Text(
           isFilipino ? 'I-reschedule ang Appointment' : 'Reschedule Appointment',
-          style: TextStyle(
+          style: JHTextStyles.h4.copyWith(
             color: ColorConstant.bluedark,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
           ),
         ),
       ),
@@ -278,13 +275,10 @@ class _RescheduleAppointmentDialogState
   }
 
   Widget _buildCurrentAppointmentCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      color: Colors.blue[50],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return AccentCard(
+      accentColor: Colors.blue,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -295,10 +289,8 @@ class _RescheduleAppointmentDialogState
                   isFilipino
                       ? 'Kasalukuyang Appointment'
                       : 'Current Appointment',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: JHTextStyles.bodyBase.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
                     color: Colors.blue[700],
                   ),
                 ),
@@ -331,7 +323,6 @@ class _RescheduleAppointmentDialogState
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -343,8 +334,7 @@ class _RescheduleAppointmentDialogState
         const SizedBox(width: 8),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
+          style: JHTextStyles.caption.copyWith(
             fontWeight: FontWeight.w600,
             color: Colors.blue[800],
           ),
@@ -353,8 +343,7 @@ class _RescheduleAppointmentDialogState
         Expanded(
           child: Text(
             value,
-            style: TextStyle(
-              fontSize: 13,
+            style: JHTextStyles.caption.copyWith(
               color: Colors.blue[900],
             ),
           ),
@@ -364,20 +353,15 @@ class _RescheduleAppointmentDialogState
   }
 
   Widget _buildDateSelectionCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isFilipino ? 'Pumili ng Bagong Petsa' : 'Select New Date',
-              style: TextStyle(
-                fontSize: 16,
+              style: JHTextStyles.bodyBase.copyWith(
                 fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -398,8 +382,7 @@ class _RescheduleAppointmentDialogState
                     Expanded(
                       child: Text(
                         DateFormat('EEEE, MMMM d, yyyy').format(_selectedDate),
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: JHTextStyles.bodyBase.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -412,25 +395,19 @@ class _RescheduleAppointmentDialogState
             ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildTimeSlotSection(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isFilipino ? 'Pumili ng Bagong Oras' : 'Select New Time',
-              style: TextStyle(
-                fontSize: 16,
+              style: JHTextStyles.bodyBase.copyWith(
                 fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -446,7 +423,6 @@ class _RescheduleAppointmentDialogState
               _buildTimeSlotGrid(),
           ],
         ),
-      ),
     );
   }
 
@@ -463,9 +439,7 @@ class _RescheduleAppointmentDialogState
         if (availableSlots.isNotEmpty) ...[
           Text(
             'Available Slots',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: JHTextStyles.label.copyWith(
               color: Colors.green[700],
             ),
           ),
@@ -498,8 +472,7 @@ class _RescheduleAppointmentDialogState
                   ),
                   child: Text(
                     slot.time,
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: JHTextStyles.bodySmall.copyWith(
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? Colors.white : Colors.green[800],
@@ -515,8 +488,7 @@ class _RescheduleAppointmentDialogState
             padding: const EdgeInsets.all(16),
             child: Text(
               'No available time slots for this date',
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: Colors.grey[600],
                 fontStyle: FontStyle.italic,
               ),
@@ -527,9 +499,7 @@ class _RescheduleAppointmentDialogState
           const SizedBox(height: 16),
           Text(
             'Booked Slots',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: JHTextStyles.label.copyWith(
               color: Colors.grey[600],
             ),
           ),
@@ -548,8 +518,7 @@ class _RescheduleAppointmentDialogState
                 ),
                 child: Text(
                   slot.time,
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: JHTextStyles.bodySmall.copyWith(
                     color: Colors.grey[600],
                     decoration: TextDecoration.lineThrough,
                   ),
@@ -563,38 +532,17 @@ class _RescheduleAppointmentDialogState
   }
 
   Widget _buildRescheduleButton(bool isFilipino) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: _rescheduleAppointment,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: ColorConstant.lightRed,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Text(
-          isFilipino ? 'I-reschedule ang Appointment' : 'Reschedule Appointment',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
-            color: Colors.white,
-          ),
-        ),
-      ),
+    return StandardButton.primary(
+      text: isFilipino ? 'I-reschedule ang Appointment' : 'Reschedule Appointment',
+      onPressed: _rescheduleAppointment,
     );
   }
 
   Widget _buildInfoCard(bool isFilipino) {
-    return Card(
-      elevation: 1,
-      color: Colors.orange[50],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return AccentCard(
+      accentColor: Colors.orange,
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -603,8 +551,7 @@ class _RescheduleAppointmentDialogState
                 const SizedBox(width: 8),
                 Text(
                   isFilipino ? 'Paalala' : 'Important Note',
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: JHTextStyles.bodySmall.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Colors.orange[700],
                   ),
@@ -620,15 +567,12 @@ class _RescheduleAppointmentDialogState
                   : '• Cannot reschedule less than 2 hours before appointment\n'
                       '• Minimum 2 hours gap between appointments\n'
                       '• Appointment status will reset to "Pending" after reschedule',
-              style: TextStyle(
-                fontSize: 12,
+              style: JHTextStyles.caption.copyWith(
                 color: Colors.orange[700],
-                height: 1.5,
               ),
             ),
           ],
         ),
-      ),
     );
   }
 }

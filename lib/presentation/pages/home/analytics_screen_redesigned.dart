@@ -4,7 +4,10 @@ import 'package:get/get.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
 import 'package:juan_heart/services/analytics_service.dart';
+import 'package:juan_heart/services/analytics_pdf_service.dart';
+import 'package:juan_heart/services/analytics_csv_service.dart';
 import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
 import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:intl/intl.dart';
@@ -459,11 +462,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       spacing: 12,
       runSpacing: 8,
       children: [
-        _buildLegendItem('Low', const JHColors.success),
-        _buildLegendItem('Mild', const JHColors.warning),
-        _buildLegendItem('Moderate', const JHColors.warning),
-        _buildLegendItem('High', const JHColors.danger),
-        _buildLegendItem('Critical', const JHColors.dangerDark),
+        _buildLegendItem('Low', JHColors.success),
+        _buildLegendItem('Mild', JHColors.warning),
+        _buildLegendItem('Moderate', JHColors.warning),
+        _buildLegendItem('High', JHColors.danger),
+        _buildLegendItem('Critical', JHColors.dangerDark),
       ],
     );
   }
@@ -524,10 +527,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isNormal ? const JHColors.successLight : const JHColors.dangerLight,
+        color: isNormal ? JHColors.successLight : JHColors.dangerLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isNormal ? const JHColors.success : const JHColors.danger,
+          color: isNormal ? JHColors.success : JHColors.danger,
           width: 1,
         ),
       ),
@@ -548,7 +551,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isNormal ? const JHColors.success : const JHColors.danger,
+                  color: isNormal ? JHColors.success : JHColors.danger,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -884,7 +887,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 12),
             ...improved.map((factor) => _buildRiskFactorItem(
               factor,
-              const JHColors.success,
+              JHColors.success,
               Icons.check_circle,
             )),
           ],
@@ -959,18 +962,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement PDF export
-                    Get.snackbar(
-                      'Coming Soon',
-                      'PDF report generation will be available soon!',
-                      snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: ColorConstant.trustBlue,
-                      colorText: Colors.white,
-                    );
-                  },
+                  onPressed: _exportPDF,
                   icon: const Icon(Icons.picture_as_pdf),
-                  label: const Text('Download PDF'),
+                  label: Text(
+                    Get.locale?.languageCode == 'fil' ? 'I-download ang PDF' : 'Download PDF',
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ColorConstant.trustBlue,
                     foregroundColor: Colors.white,
@@ -982,18 +978,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement share functionality
-                    Get.snackbar(
-                      'Coming Soon',
-                      'Share feature will be available soon!',
-                      snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: ColorConstant.trustBlue,
-                      colorText: Colors.white,
-                    );
-                  },
+                  onPressed: _shareReport,
                   icon: const Icon(Icons.share),
-                  label: const Text('Share'),
+                  label: Text(
+                    Get.locale?.languageCode == 'fil' ? 'Ibahagi' : 'Share',
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: ColorConstant.trustBlue,
                     side: BorderSide(color: ColorConstant.trustBlue, width: 1.5),
@@ -1096,9 +1085,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Color _getTrendColor(String trend) {
     switch (trend) {
       case 'improving':
-        return const JHColors.success;
+        return JHColors.success;
       case 'worsening':
-        return const JHColors.danger;
+        return JHColors.danger;
       default:
         return ColorConstant.trustBlue;
     }
@@ -1129,15 +1118,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
       case 'critical':
-        return const JHColors.dangerDark;
+        return JHColors.dangerDark;
       case 'high':
-        return const JHColors.danger;
+        return JHColors.danger;
       case 'moderate':
-        return const JHColors.warning;
+        return JHColors.warning;
       case 'mild':
-        return const JHColors.warning;
+        return JHColors.warning;
       case 'low':
-        return const JHColors.success;
+        return JHColors.success;
       default:
         return Colors.grey;
     }
@@ -1145,15 +1134,307 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Color _getHeatmapColor(int score) {
     if (score <= 5) {
-      return const JHColors.success; // Green
+      return JHColors.success; // Green
     } else if (score <= 10) {
-      return const JHColors.warning; // Yellow
+      return JHColors.warning; // Yellow
     } else if (score <= 15) {
-      return const JHColors.warning; // Orange
+      return JHColors.warning; // Orange
     } else if (score <= 20) {
-      return const JHColors.danger; // Red-Orange
+      return JHColors.danger; // Red-Orange
     } else {
-      return const JHColors.dangerDark; // Red
+      return JHColors.dangerDark; // Red
+    }
+  }
+
+  /// Export health report as PDF
+  Future<void> _exportPDF() async {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    // Show loading dialog
+    Get.dialog(
+      WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: ColorConstant.trustBlue),
+              const SizedBox(height: 16),
+              Text(
+                isFilipino
+                    ? 'Ginagawa ang PDF report...'
+                    : 'Generating PDF report...',
+                style: JHTextStyles.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      // Validate required data
+      if (_trendStats == null) {
+        throw Exception(isFilipino ? 'Walang available na trend data' : 'No trend data available');
+      }
+
+      // Generate and share PDF
+      await AnalyticsPDFService.generateAndShareHealthReport(
+        history: _history,
+        trendStats: _trendStats!,
+        vitalTrends: _vitalTrends,
+        insights: _insights,
+        categoryDistribution: _categoryDistribution,
+        language: isFilipino ? 'fil' : 'en',
+      );
+
+      // Close loading dialog
+      Get.back();
+
+      // Show success message
+      Get.snackbar(
+        isFilipino ? 'Tagumpay!' : 'Success!',
+        isFilipino
+            ? 'Ang PDF report ay na-generate na. Tingnan ang inyong downloads folder.'
+            : 'PDF report generated successfully. Check your downloads folder.',
+        backgroundColor: JHColors.success,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      // Close loading dialog
+      Get.back();
+
+      // Show error message
+      Get.snackbar(
+        isFilipino ? 'Error' : 'Error',
+        isFilipino
+            ? 'Hindi ma-generate ang PDF report: $e'
+            : 'Failed to generate PDF report: $e',
+        backgroundColor: JHColors.danger,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    }
+  }
+
+  /// Share health report (PDF or CSV)
+  Future<void> _shareReport() async {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    // Show action sheet to choose format
+    await Get.bottomSheet(
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isFilipino ? 'Piliin ang Format' : 'Choose Format',
+              style: JHTextStyles.h4.copyWith(
+                color: ColorConstant.bluedark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isFilipino
+                  ? 'Piliin kung paano mo gusto ibahagi ang iyong health report.'
+                  : 'Choose how you want to share your health report.',
+              style: JHTextStyles.bodySmall.copyWith(
+                color: ColorConstant.gentleGray,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // PDF Option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              ),
+              title: Text(
+                'PDF Report',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
+                ),
+              ),
+              subtitle: Text(
+                isFilipino
+                    ? 'Visual na report na may charts at insights'
+                    : 'Visual report with charts and insights',
+                style: JHTextStyles.caption.copyWith(
+                  color: ColorConstant.gentleGray,
+                ),
+              ),
+              onTap: () {
+                Get.back();
+                _shareAsPDF();
+              },
+            ),
+            const SizedBox(height: 8),
+            // CSV Option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.table_chart, color: Colors.green),
+              ),
+              title: Text(
+                'CSV Data',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
+                ),
+              ),
+              subtitle: Text(
+                isFilipino
+                    ? 'Raw data para sa spreadsheet analysis'
+                    : 'Raw data for spreadsheet analysis',
+                style: JHTextStyles.caption.copyWith(
+                  color: ColorConstant.gentleGray,
+                ),
+              ),
+              onTap: () {
+                Get.back();
+                _shareAsCSV();
+              },
+            ),
+            const SizedBox(height: 16),
+            // Cancel button
+            StandardButton.grey(
+              text: isFilipino ? 'Kanselahin' : 'Cancel',
+              onPressed: () => Get.back(),
+            ),
+          ],
+        ),
+      ),
+      isDismissible: true,
+      enableDrag: true,
+    );
+  }
+
+  /// Share report as PDF
+  Future<void> _shareAsPDF() async {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    // Show loading dialog
+    Get.dialog(
+      WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: ColorConstant.trustBlue),
+              const SizedBox(height: 16),
+              Text(
+                isFilipino
+                    ? 'Ginagawa ang PDF...'
+                    : 'Generating PDF...',
+                style: JHTextStyles.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      // Validate required data
+      if (_trendStats == null) {
+        throw Exception(isFilipino ? 'Walang available na trend data' : 'No trend data available');
+      }
+
+      await AnalyticsPDFService.generateAndShareHealthReport(
+        history: _history,
+        trendStats: _trendStats!,
+        vitalTrends: _vitalTrends,
+        insights: _insights,
+        categoryDistribution: _categoryDistribution,
+        language: isFilipino ? 'fil' : 'en',
+      );
+
+      Get.back(); // Close loading dialog
+    } catch (e) {
+      Get.back(); // Close loading dialog
+
+      Get.snackbar(
+        isFilipino ? 'Error' : 'Error',
+        isFilipino
+            ? 'Hindi ma-share ang PDF: $e'
+            : 'Failed to share PDF: $e',
+        backgroundColor: JHColors.danger,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    }
+  }
+
+  /// Share report as CSV
+  Future<void> _shareAsCSV() async {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    // Show loading dialog
+    Get.dialog(
+      WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: ColorConstant.trustBlue),
+              const SizedBox(height: 16),
+              Text(
+                isFilipino
+                    ? 'Ginagawa ang CSV...'
+                    : 'Generating CSV...',
+                style: JHTextStyles.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      await AnalyticsCSVService.exportAndShareAssessmentHistory(
+        history: _history,
+        language: isFilipino ? 'fil' : 'en',
+      );
+
+      Get.back(); // Close loading dialog
+    } catch (e) {
+      Get.back(); // Close loading dialog
+
+      Get.snackbar(
+        isFilipino ? 'Error' : 'Error',
+        isFilipino
+            ? 'Hindi ma-share ang CSV: $e'
+            : 'Failed to share CSV: $e',
+        backgroundColor: JHColors.danger,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
     }
   }
 }

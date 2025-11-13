@@ -5,8 +5,10 @@ import 'package:juan_heart/services/privacy_service.dart';
 import 'package:juan_heart/services/analytics_csv_service.dart';
 import 'package:juan_heart/services/analytics_service.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 /// Privacy & Data Preferences Screen
 ///
@@ -112,7 +114,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                   Get.locale?.languageCode == 'fil'
                       ? 'Ine-export ang iyong data...'
                       : 'Exporting your data...',
-                  style: const TextStyle(fontSize: 14),
+                  style: JHTextStyles.bodyBase,
                 ),
               ],
             ),
@@ -139,9 +141,8 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
             Get.locale?.languageCode == 'fil'
                 ? 'I-export ang Personal Data'
                 : 'Export Personal Data',
-            style: TextStyle(
+            style: JHTextStyles.h4.copyWith(
               color: ColorConstant.trustBlue,
-              fontWeight: FontWeight.bold,
             ),
           ),
           content: Column(
@@ -162,7 +163,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                   Get.locale?.languageCode == 'fil'
                       ? 'Lahat ng data kasama ang privacy settings'
                       : 'All data including privacy settings',
-                  style: const TextStyle(fontSize: 12),
+                  style: JHTextStyles.caption,
                 ),
                 onTap: () async {
                   Get.back();
@@ -176,7 +177,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                   Get.locale?.languageCode == 'fil'
                       ? 'Assessment history at vital signs'
                       : 'Assessment history and vital signs',
-                  style: const TextStyle(fontSize: 12),
+                  style: JHTextStyles.caption,
                 ),
                 onTap: () async {
                   Get.back();
@@ -210,7 +211,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
           content: SingleChildScrollView(
             child: SelectableText(
               jsonString,
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              style: JHTextStyles.caption.copyWith(fontFamily: 'monospace'),
             ),
           ),
           actions: [
@@ -272,9 +273,8 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
               Get.locale?.languageCode == 'fil'
                   ? 'Sigurado ka ba?'
                   : 'Are you sure?',
-              style: const TextStyle(
+              style: JHTextStyles.h4.copyWith(
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
@@ -302,7 +302,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
               decoration: BoxDecoration(
                 color: ColorConstant.redLightBackground,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ColorConstant.emergencyBadge.withOpacity(0.3)),
+                border: Border.all(color: ColorConstant.emergencyBadge.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -313,8 +313,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                       Get.locale?.languageCode == 'fil'
                           ? 'I-export muna ang iyong data bago burahin.'
                           : 'Consider exporting your data first.',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: JHTextStyles.caption.copyWith(
                         color: ColorConstant.emergencyBadge,
                       ),
                     ),
@@ -390,7 +389,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(text, style: const TextStyle(fontSize: 13)),
+          Text(text, style: JHTextStyles.bodySmall),
         ],
       ),
     );
@@ -422,15 +421,21 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: ColorConstant.whiteBackground,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
+          onPressed: () => Get.back(),
+        ),
         title: Text(
           Get.locale?.languageCode == 'fil'
               ? 'Privacy at Data'
               : 'Privacy & Data',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: JHTextStyles.h4.copyWith(
+            color: ColorConstant.bluedark,
+          ),
         ),
-        backgroundColor: ColorConstant.trustBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -454,17 +459,15 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.privacy_tip, color: Colors.white, size: 32),
+                            const Icon(Icons.privacy_tip, color: Colors.white, size: 32),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 Get.locale?.languageCode == 'fil'
                                     ? 'Ang iyong privacy ay mahalaga sa amin'
                                     : 'Your privacy matters to us',
-                                style: const TextStyle(
+                                style: JHTextStyles.h4.copyWith(
                                   color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
@@ -476,9 +479,8 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                             Get.locale?.languageCode == 'fil'
                                 ? 'Consent ibinigay: ${DateFormat.yMMMd().format(_consentDate!)}'
                                 : 'Consent given: ${DateFormat.yMMMd().format(_consentDate!)}',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 13,
+                            style: JHTextStyles.bodySmall.copyWith(
+                              color: Colors.white.withValues(alpha: 0.9),
                             ),
                           ),
                         ],
@@ -498,9 +500,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                           Get.locale?.languageCode == 'fil'
                               ? 'Mga Privacy Preference'
                               : 'Privacy Preferences',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                          style: JHTextStyles.h3.copyWith(
                             color: ColorConstant.trustBlue,
                           ),
                         ),
@@ -509,8 +509,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                           Get.locale?.languageCode == 'fil'
                               ? 'Kontrolin kung paano ginagamit ang iyong data'
                               : 'Control how your data is used',
-                          style: TextStyle(
-                            fontSize: 14,
+                          style: JHTextStyles.bodyBase.copyWith(
                             color: ColorConstant.gentleGray,
                           ),
                         ),
@@ -575,9 +574,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                           Get.locale?.languageCode == 'fil'
                               ? 'Mga Karapatan sa Data'
                               : 'Your Data Rights',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                          style: JHTextStyles.h3.copyWith(
                             color: ColorConstant.trustBlue,
                           ),
                         ),
@@ -586,8 +583,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                           Get.locale?.languageCode == 'fil'
                               ? 'Alinsunod sa Philippine Data Privacy Act'
                               : 'Per Philippine Data Privacy Act',
-                          style: TextStyle(
-                            fontSize: 14,
+                          style: JHTextStyles.bodyBase.copyWith(
                             color: ColorConstant.gentleGray,
                           ),
                         ),
@@ -634,7 +630,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                           decoration: BoxDecoration(
                             color: ColorConstant.lightBlueBackground,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: ColorConstant.trustBlue.withOpacity(0.2)),
+                            border: Border.all(color: ColorConstant.trustBlue.withValues(alpha: 0.2)),
                           ),
                           child: Row(
                             children: [
@@ -648,8 +644,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                                       Get.locale?.languageCode == 'fil'
                                           ? 'Para sa higit pang impormasyon'
                                           : 'For more information',
-                                      style: TextStyle(
-                                        fontSize: 13,
+                                      style: JHTextStyles.bodySmall.copyWith(
                                         color: ColorConstant.trustBlue,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -659,8 +654,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
                                       Get.locale?.languageCode == 'fil'
                                           ? 'Basahin ang aming Privacy Policy at Terms of Service'
                                           : 'Read our Privacy Policy and Terms of Service',
-                                      style: TextStyle(
-                                        fontSize: 12,
+                                      style: JHTextStyles.caption.copyWith(
                                         color: ColorConstant.gentleGray,
                                       ),
                                     ),
@@ -689,27 +683,15 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
     required bool value,
     required Function(bool) onChanged,
   }) {
-    return Container(
+    return StandardCard(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ColorConstant.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: ColorConstant.cardShadowLight,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: ColorConstant.trustBlue.withOpacity(0.1),
+              color: ColorConstant.trustBlue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: ColorConstant.trustBlue, size: 24),
@@ -721,16 +703,14 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: JHTextStyles.h4.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 13,
+                  style: JHTextStyles.bodySmall.copyWith(
                     color: ColorConstant.gentleGray,
                   ),
                 ),
@@ -756,25 +736,9 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
     required VoidCallback onTap,
     bool isDangerous = false,
   }) {
-    return Container(
+    Widget card = StandardCard(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDangerous
-              ? ColorConstant.emergencyBadge.withOpacity(0.3)
-              : ColorConstant.cardBorder,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: ColorConstant.cardShadowLight,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -783,7 +747,7 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: iconColor, size: 24),
@@ -829,9 +793,8 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
               ),
               child: Text(
                 buttonText,
-                style: const TextStyle(
+                style: JHTextStyles.button.copyWith(
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -839,5 +802,19 @@ class _PrivacyPreferencesScreenState extends State<PrivacyPreferencesScreen> {
         ],
       ),
     );
+
+    // Wrap dangerous actions with red border
+    if (isDangerous) {
+      card = Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: ColorConstant.emergencyBadge, width: 2),
+        ),
+        child: card,
+      );
+    }
+
+    return card;
   }
 }

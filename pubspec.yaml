@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.19.2 <3.0.0"
+  sdk: ">=3.0.0 <4.0.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -30,8 +30,8 @@ environment:
 dependencies:
   bloc: ^8.1.1
   connectivity_plus: ^5.0.2
-  cookie_jar: ^3.0.1
   cupertino_icons: ^1.0.2
+  dio: ^5.4.0
   equatable: ^2.0.5
   fl_chart: ^0.68.0
   flutter:
@@ -39,13 +39,15 @@ dependencies:
   flutter_bloc: ^8.1.2
   flutter_dotenv: ^5.0.2
   geolocator: ^9.0.2
+  geocoding: ^2.1.0
+  device_info_plus: ^9.0.0
+  uni_links: ^0.5.1
   get: ^4.6.5
   hive: ^2.2.3
+  hive_flutter: ^1.1.0
   http: ^0.13.5
   liquid_swipe: ^3.0.0
   shared_preferences: ^2.0.18
-  syncfusion_flutter_charts: ^20.4.53
-  translator: ^0.1.7
   twilio_flutter: ^0.0.9
   pdf: ^3.10.7
   path_provider: ^2.1.5
@@ -55,17 +57,47 @@ dependencies:
   qr_flutter: ^4.1.0
   uuid: ^4.2.1
   flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.2
   file_picker: ^10.3.3
   image_picker: ^1.2.0
+  # Security dependencies for JWT token management
+  flutter_secure_storage: ^9.0.0
+  jwt_decoder: ^2.0.1
   # Firebase dependencies for Genkit AI assessment
   firebase_core: ^2.24.2
   firebase_remote_config: ^4.3.8
   cloud_functions: ^4.6.7
+  firebase_messaging: ^14.7.9
+  firebase_performance: ^0.9.3+7
+  firebase_analytics: ^10.8.0
+  firebase_crashlytics: ^3.4.9
+  # UI enhancements for notifications
+  flutter_slidable: ^3.0.0
+  # Offline database with Drift (SQLite)
+  drift: ^2.14.0
+  drift_flutter: ^0.1.0
+  sqlite3_flutter_libs: ^0.5.18
+  # Background sync workers
+  workmanager: ^0.5.1
+  background_fetch: ^1.2.0
+  # Educational content UI
+  flutter_html: ^3.0.0-beta.2
+  # Image loading shimmer effect
+  shimmer: ^3.0.0
+  # Typography - Inter and JetBrains Mono fonts
+  google_fonts: ^4.0.4
 
 dev_dependencies:
   flutter_lints: ^2.0.0
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
+  bloc_test: ^9.1.1
+  mocktail: ^1.0.1
+  build_runner: ^2.4.6
+  hive_generator: ^2.0.1
+  drift_dev: ^2.14.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -82,7 +114,6 @@ flutter:
     - assets/images/notification_images/
     - assets/images/navigation_bar_images/
     - .env
-    - assets/model.tflite
   #   - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
@@ -96,33 +127,24 @@ flutter:
   fonts:
     - family: DMSans
       fonts:
-        - asset: assets/fonts/DMSans/DMSans-Italic.ttf
-          weight: 100
-          style: italic
+        - asset: assets/fonts/DMSans/DMSans-Light.ttf
+          weight: 300
         - asset: assets/fonts/DMSans/DMSans-Regular.ttf
           weight: 400
+        - asset: assets/fonts/DMSans/DMSans-Italic.ttf
+          weight: 400
+          style: italic
         - asset: assets/fonts/DMSans/DMSans-Medium.ttf
           weight: 500
         - asset: assets/fonts/DMSans/DMSans-MediumItalic.ttf
           weight: 500
           style: italic
+        - asset: assets/fonts/DMSans/DMSans-SemiBold.ttf
+          weight: 600
         - asset: assets/fonts/DMSans/DMSans-Bold.ttf
           weight: 700
         - asset: assets/fonts/DMSans/DMSans-BoldItalic.ttf
           weight: 700
           style: italic
-    - family: Poppins
-      fonts:
-        - asset: assets/fonts/Poppins/Poppins-Italic.ttf
-          weight: 100
-          style: italic
-        - asset: assets/fonts/Poppins/Poppins-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Poppins/Poppins-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Poppins/Poppins-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Poppins/Poppins-Bold.ttf
-          weight: 700
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages

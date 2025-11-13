@@ -1344,7 +1344,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           _buildReviewCard(
             title: "Symptoms",
             icon: Icons.favorite_outline,
-            iconColor: const JHColors.danger,
+            iconColor: JHColors.danger,
             items: [
               if (_userInput['chestPainType'].toString().isNotEmpty && _userInput['chestPainType'] != '')
                 _buildReviewItem("Chest Pain", "${_userInput['chestPainType']}"),
@@ -1386,7 +1386,7 @@ class _MedicalTriageAssessmentScreenState extends State<MedicalTriageAssessmentS
           _buildReviewCard(
             title: "Risk Factors",
             icon: Icons.warning_amber_outlined,
-            iconColor: const JHColors.warning,
+            iconColor: JHColors.warning,
             items: [
               if (_userInput['hypertension'] == true)
                 _buildReviewItem("Medical", "Hypertension"),

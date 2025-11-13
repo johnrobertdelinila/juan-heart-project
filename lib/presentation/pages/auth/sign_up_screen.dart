@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:juan_heart/bloc/auth_bloc/signup_bloc/signup_bloc.dart';
-import 'package:juan_heart/bloc/auth_bloc/signup_bloc/signup_bloc_event.dart';
 import 'package:juan_heart/bloc/auth_bloc/signup_bloc/signup_bloc_state.dart';
-import 'package:juan_heart/models/user_model.dart';
 import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/service/ApiService.dart';
 import 'package:juan_heart/themes/app_decoration.dart';
-import 'package:juan_heart/themes/app_styles.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/presentation/widgets/cached_image.dart';
 
 import '../../../core/app_exports.dart';
 import '../../widgets/export_widgets.dart';
@@ -62,6 +61,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   @override
+  void dispose() {
+    // Dispose controllers
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+
+    // Dispose focus nodes
+    _fullNameFocusNode.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+
+    // Close BLoC
+    _signUpBloc.close();
+
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocBuilder<SignUpBloc, SignUpState>(
@@ -69,12 +86,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
         builder: (context, state) {
           if (state is SignUpLoading) {
             return Container(
-              color: ColorConstant.bluedark,
+              color: JHColors.midnightBlue,
               width: MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.height,
               child: Center(
                 child: CircularProgressIndicator(
-                  color: ColorConstant.whiteBackground,
+                  color: JHColors.cloudWhite,
                 ),
               ),
             );
@@ -84,7 +101,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             child: Container(
               width: double.infinity,
               height: MediaQuery.of(context).size.height,
-              color: ColorConstant.fromHex("F8F8FA"),
+              color: JHColors.softGray,
               child: Stack(
                 children: [
                   AnimatedContainer(
@@ -97,8 +114,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         AppDecoration.fillIndigoWithBorderRadiusBottomLR22,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 100),
-                      child: Image.asset(
+                      child: CachedImage.asset(
                         ImageConstant.imgLogoDark,
+                        fit: BoxFit.contain,
+                        cacheHeight: 400,
                       ),
                     ),
                   ),
@@ -121,7 +140,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
                               "Sign Up",
-                              style: AppStyle.txtPoppinsSemiBold24Dark,
+                              style: JHTextStyles.h3.copyWith(
+                                color: JHColors.midnightBlue,
+                              ),
                             ),
                           ),
                           _fullNameCustomTextField(),
@@ -164,8 +185,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               // }
                             },
                             label: "Sign Up",
-                            labelColor: Colors.white,
-                            buttonBgColor: ColorConstant.bluedark,
+                            labelColor: JHColors.cloudWhite,
+                            buttonBgColor: JHColors.midnightBlue,
                             margin: const EdgeInsets.symmetric(
                               horizontal: 22,
                               vertical: 15,
@@ -187,7 +208,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         children: [
                           Text(
                             "Already have an account?",
-                            style: AppStyle.txtPoppinsMedium17Bluegray9006c,
+                            style: JHTextStyles.bodyLarge.copyWith(
+                              color: ColorConstant.bluegray9006c,
+                              fontSize: 17,
+                            ),
                           ),
                           const SizedBox(
                             width: 10,
@@ -197,7 +221,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             onTap: () {
                               Get.toNamed(AppRoutes.signInScreen);
                             },
-                            textStyle: AppStyle.txtPoppinsSemiBold17Light,
+                            textStyle: JHTextStyles.h5.copyWith(
+                              color: ColorConstant.bluedark.withValues(alpha: 0.8),
+                              fontSize: 17,
+                            ),
                           )
                         ],
                       ),
@@ -258,7 +285,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _passwordVisible ? Icons.visibility_off : Icons.visibility,
           size: 22,
           color: _passwordVisible
-              ? ColorConstant.bluedark.withOpacity(0.3)
+              ? ColorConstant.bluedark.withValues(alpha: 0.3)
               : ColorConstant.bluedark,
         ),
       ),

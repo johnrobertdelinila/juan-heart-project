@@ -7,14 +7,137 @@ import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc_event.dart';
 import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc_state.dart';
 import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/presentation/pages/home/home_screen.dart';
-import 'package:juan_heart/presentation/pages/home/appointments_screen.dart';
 import 'package:juan_heart/presentation/pages/home/user_profile_screen.dart';
 import 'package:juan_heart/routes/app_routes.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:twilio_flutter/twilio_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/presentation/widgets/deferred_loading_indicator.dart';
 
 import '../../widgets/custom_bottom_navigation_bar.dart';
-import 'analytics_screen.dart';
+import '../../widgets/cached_image.dart';
+
+// Deferred imports for heavy screens used in bottom navigation
+import 'package:juan_heart/presentation/pages/home/analytics_screen.dart' deferred as analytics;
+import 'package:juan_heart/presentation/pages/home/appointments_screen.dart' deferred as appointments;
+
+/// Top-level function to show custom dialog for Heart Risk Assessment
+/// Can be accessed from any file that imports this file
+void showCustomDialog(BuildContext context, {String? targetRoute}) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: SizedBox(
+          height: 250,
+          width: MediaQuery.of(context).size.width,
+          child: Container(
+            height: 150,
+            width: MediaQuery.of(context).size.width,
+            color: Colors.transparent,
+            child: Column(
+              children: [
+                Stack(
+                  children: [
+                    Container(
+                      width: MediaQuery.of(context).size.width,
+                      height: 100,
+                      color: Colors.transparent,
+                    ),
+                    Positioned(
+                      width: MediaQuery.of(context).size.width,
+                      bottom: -10,
+                      child: Container(
+                        width: MediaQuery.of(context).size.width,
+                        height: 50,
+                        color: ColorConstant.whiteBackground,
+                      ),
+                    ),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.only(
+                          left: 22,
+                          right: 22,
+                          bottom: 22,
+                          top: 30,
+                        ),
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: ColorConstant.lightRed,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Center(
+                          child: CachedIconImage(
+                            assetPath: ImageConstant.imgHealthify,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  width: MediaQuery.of(context).size.width,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    color: ColorConstant.whiteBackground,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(
+                          left: 35,
+                        ),
+                        child: Text(
+                          "Take a Heart Risk Assessment?",
+                          style: JHTextStyles.bodyBase.copyWith(
+                            color: ColorConstant.bluedark,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            top: 30.0, left: 15, right: 15),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            SosButton(
+                              title: "Start",
+                              onTap: () {
+                                if (Navigator.of(context).canPop()) {
+                                  Navigator.pop(context); // close dialog
+                                  Get.toNamed(targetRoute ?? AppRoutes.heartRiskAssessmentScreen);
+                                }
+                              },
+                            ),
+                            SosButton(
+                              title: "Not Now",
+                              enableOutlineButton: true,
+                              onTap: () {
+                                Navigator.pop(context);
+                              },
+                            )
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -27,16 +150,23 @@ class _HomeState extends State<Home> {
   int activeIndex = 0;
 
   // GlobalKey to access AppointmentsScreen state
-  final _appointmentsKey = GlobalKey<State<AppointmentsScreen>>();
+  final _appointmentsKey = GlobalKey();
 
   late List<Widget> screens;
 
   // Store success data for showing dialog after navigation
   Map<String, dynamic>? _successData;
 
+  // Track library loading status
+  bool _analyticsLoaded = false;
+  bool _appointmentsLoaded = false;
+
   @override
   void initState() {
     super.initState();
+
+    // Preload deferred libraries for smooth navigation
+    _preloadDeferredLibraries();
 
     // Check if initial tab is specified in navigation arguments
     final args = Get.arguments as Map<String, dynamic>?;
@@ -53,12 +183,34 @@ class _HomeState extends State<Home> {
 
     screens = [
       HomeScreen(),
-      const AnalyticsScreen(),
-      AppointmentsScreen(key: _appointmentsKey),
+      _DeferredAnalyticsWrapper(
+        onLoaded: () => setState(() => _analyticsLoaded = true),
+      ),
+      _DeferredAppointmentsWrapper(
+        appointmentsKey: _appointmentsKey,
+        onLoaded: () => setState(() => _appointmentsLoaded = true),
+      ),
       const UserProfileScreen(),
     ];
     fetchUserDataBloc = FetchUserDataBloc();
     fetchUserDataBloc.add(const GetUserData());
+  }
+
+  /// Preload deferred libraries for smooth tab switching
+  Future<void> _preloadDeferredLibraries() async {
+    try {
+      // Load libraries in parallel for faster initialization
+      await Future.wait([
+        analytics.loadLibrary().then((_) {
+          if (mounted) setState(() => _analyticsLoaded = true);
+        }),
+        appointments.loadLibrary().then((_) {
+          if (mounted) setState(() => _appointmentsLoaded = true);
+        }),
+      ]);
+    } catch (e) {
+      debugPrint('Error preloading deferred libraries: $e');
+    }
   }
 
   String userName = "";
@@ -113,122 +265,6 @@ class _HomeState extends State<Home> {
             'SOS! Emergency alert from team healthify.\n$userName might be suffering from a heart Stroke.\n $location');
   }
 
-  void _showCustomDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: SizedBox(
-            height: 250,
-            width: MediaQuery.of(context).size.width,
-            child: Container(
-              height: 150,
-              width: MediaQuery.of(context).size.width,
-              color: Colors.transparent,
-              child: Column(
-                children: [
-                  Stack(
-                    children: [
-                      Container(
-                        width: MediaQuery.of(context).size.width,
-                        height: 100,
-                        color: Colors.transparent,
-                      ),
-                      Positioned(
-                        width: MediaQuery.of(context).size.width,
-                        bottom: -10,
-                        child: Container(
-                          width: MediaQuery.of(context).size.width,
-                          height: 50,
-                          color: ColorConstant.whiteBackground,
-                        ),
-                      ),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.only(
-                            left: 22,
-                            right: 22,
-                            bottom: 22,
-                            top: 30,
-                          ),
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: ColorConstant.lightRed,
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: Center(
-                            child: Image.asset(
-                              ImageConstant.imgHealthify,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    width: MediaQuery.of(context).size.width,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      color: ColorConstant.whiteBackground,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(
-                            left: 35,
-                          ),
-                          child: Text(
-                            "Take a Heart Risk Assessment?",
-                            style: TextStyle(
-                              color: ColorConstant.bluedark,
-                              fontSize: 15,
-                              fontFamily: "Poppins",
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(
-                              top: 30.0, left: 15, right: 15),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              SosButton(
-                                title: "Start",
-                                onTap: () {
-                                  if (Navigator.of(context).canPop()) {
-                                    Navigator.pop(context); // close dialog
-                                    Get.toNamed(AppRoutes.heartRiskAssessmentScreen);
-                                  }
-                                },
-                              ),
-                              SosButton(
-                                title: "Not Now",
-                                enableOutlineButton: true,
-                                onTap: () {
-                                  Navigator.pop(context);
-                                },
-                              )
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showBookingSuccessDialog(BuildContext context, Map<String, dynamic> data) {
     final isFilipino = Get.locale?.languageCode == 'fil';
 
@@ -242,11 +278,8 @@ class _HomeState extends State<Home> {
             Expanded(
               child: Text(
                 isFilipino ? 'Tagumpay!' : 'Success!',
-                style: TextStyle(
+                style: JHTextStyles.h5.copyWith(
                   color: Colors.green[700],
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
-                  fontSize: 18,
                 ),
               ),
             ),
@@ -260,8 +293,7 @@ class _HomeState extends State<Home> {
               isFilipino
                   ? 'Ang inyong appointment ay matagumpay na na-book!'
                   : 'Your appointment has been booked successfully!',
-              style: const TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 height: 1.5,
                 fontWeight: FontWeight.w500,
               ),
@@ -317,8 +349,7 @@ class _HomeState extends State<Home> {
                               isFilipino
                                   ? 'May kasamang assessment data'
                                   : 'Includes assessment data',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: JHTextStyles.label.copyWith(
                                 color: Colors.green[900],
                                 fontWeight: FontWeight.w500,
                               ),
@@ -334,23 +365,10 @@ class _HomeState extends State<Home> {
           ],
         ),
         actions: [
-          ElevatedButton(
+          StandardButton.primary(
+            text: isFilipino ? 'OK' : 'OK',
             onPressed: () => Get.back(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ColorConstant.lightRed,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: Text(
-              isFilipino ? 'OK' : 'OK',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
+            width: 100,
           ),
         ],
       ),
@@ -421,7 +439,7 @@ class _HomeState extends State<Home> {
           });
         },
         onPressSOS: () {
-          _showCustomDialog(context);
+          showCustomDialog(context);
         },
         onPressAppointments: () {
           setState(() {
@@ -473,14 +491,116 @@ class SosButton extends StatelessWidget {
         ),
         child: Text(
           title,
-          style: TextStyle(
+          style: JHTextStyles.button.copyWith(
             color: enableOutlineButton == true
                 ? ColorConstant.lightRed
                 : ColorConstant.whiteText,
-            fontFamily: "Poppins",
           ),
         ),
       ),
+    );
+  }
+}
+
+// Deferred wrapper widgets for bottom navigation screens
+
+/// Wrapper for lazy-loaded Analytics Screen
+class _DeferredAnalyticsWrapper extends StatefulWidget {
+  final VoidCallback? onLoaded;
+
+  const _DeferredAnalyticsWrapper({this.onLoaded});
+
+  @override
+  State<_DeferredAnalyticsWrapper> createState() => _DeferredAnalyticsWrapperState();
+}
+
+class _DeferredAnalyticsWrapperState extends State<_DeferredAnalyticsWrapper> {
+  Future<void>? _loadLibrary;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLibrary = analytics.loadLibrary().then((_) {
+      widget.onLoaded?.call();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _loadLibrary,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            return DeferredLoadingError(
+              errorMessage: 'Failed to load Analytics',
+              onRetry: () {
+                setState(() {
+                  _loadLibrary = analytics.loadLibrary();
+                });
+              },
+            );
+          }
+          return analytics.AnalyticsScreen();
+        }
+        return const DeferredLoadingIndicator(
+          message: 'Loading Analytics...',
+          showLogo: false,
+        );
+      },
+    );
+  }
+}
+
+/// Wrapper for lazy-loaded Appointments Screen
+class _DeferredAppointmentsWrapper extends StatefulWidget {
+  final GlobalKey appointmentsKey;
+  final VoidCallback? onLoaded;
+
+  const _DeferredAppointmentsWrapper({
+    required this.appointmentsKey,
+    this.onLoaded,
+  });
+
+  @override
+  State<_DeferredAppointmentsWrapper> createState() =>
+      _DeferredAppointmentsWrapperState();
+}
+
+class _DeferredAppointmentsWrapperState extends State<_DeferredAppointmentsWrapper> {
+  Future<void>? _loadLibrary;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLibrary = appointments.loadLibrary().then((_) {
+      widget.onLoaded?.call();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _loadLibrary,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            return DeferredLoadingError(
+              errorMessage: 'Failed to load Appointments',
+              onRetry: () {
+                setState(() {
+                  _loadLibrary = appointments.loadLibrary();
+                });
+              },
+            );
+          }
+          return appointments.AppointmentsScreen(key: widget.appointmentsKey);
+        }
+        return const DeferredLoadingIndicator(
+          message: 'Loading Appointments...',
+          showLogo: false,
+        );
+      },
     );
   }
 }

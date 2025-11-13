@@ -20,8 +20,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
 import 'package:juan_heart/models/referral_data.dart';
 import 'package:juan_heart/services/referral_pdf_service.dart';
-import 'package:juan_heart/themes/app_styles.dart';
 import 'package:juan_heart/presentation/widgets/referral_widgets.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 class ReferralSummaryScreen extends StatefulWidget {
   const ReferralSummaryScreen({Key? key}) : super(key: key);
@@ -59,6 +59,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
     if (_recommendation == null || _selectedFacility == null) {
       return Scaffold(
         appBar: AppBar(
+          centerTitle: true,
           title: Text(lang == 'fil' ? 'Error' : 'Error'),
         ),
         body: Center(
@@ -74,28 +75,18 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
     return Scaffold(
       backgroundColor: ColorConstant.softWhite,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              lang == 'fil' ? 'Referral Summary' : 'Referral Summary',
-              style: AppStyle.txtPoppinsSemiBold20Dark,
-            ),
-            Text(
-              lang == 'fil' ? 'Handa na para i-share' : 'Ready to share',
-              style: TextStyle(
-                fontSize: 12,
-                color: ColorConstant.gentleGray,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        title: Text(
+          lang == 'fil' ? 'Referral Summary' : 'Referral Summary',
+          style: JHTextStyles.h3.copyWith(
+            color: ColorConstant.bluedark,
+          ),
         ),
       ),
       body: Container(
@@ -172,13 +163,13 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            ColorConstant.reassuringGreen.withOpacity(0.12),
-            ColorConstant.reassuringGreen.withOpacity(0.05),
+            ColorConstant.reassuringGreen.withValues(alpha: 0.12),
+            ColorConstant.reassuringGreen.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: ColorConstant.reassuringGreen.withOpacity(0.3),
+          color: ColorConstant.reassuringGreen.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -187,7 +178,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: ColorConstant.reassuringGreen.withOpacity(0.2),
+              color: ColorConstant.reassuringGreen.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -203,9 +194,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               children: [
                 Text(
                   lang == 'fil' ? '✓ Referral Completed' : '✓ Referral Completed',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: JHTextStyles.h5.copyWith(
                     color: ColorConstant.reassuringGreen,
                   ),
                 ),
@@ -214,9 +203,8 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
                   lang == 'fil'
                       ? 'Handa na ang iyong referral document'
                       : 'Your referral document is ready',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: ColorConstant.bluedark.withOpacity(0.8),
+                  style: JHTextStyles.caption.copyWith(
+                    color: ColorConstant.bluedark.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -232,10 +220,10 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _recommendation!.indicatorColor.withOpacity(0.1),
+        color: _recommendation!.indicatorColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _recommendation!.indicatorColor.withOpacity(0.3),
+          color: _recommendation!.indicatorColor.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -244,8 +232,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
         children: [
           Text(
             lang == 'fil' ? 'Resulta ng Assessment' : 'Assessment Result',
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               fontWeight: FontWeight.w600,
               color: ColorConstant.grey,
             ),
@@ -264,16 +251,13 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
                 children: [
                   Text(
                     _recommendation!.riskCategory,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                    style: JHTextStyles.h4.copyWith(
                       color: _recommendation!.indicatorColor,
                     ),
                   ),
                   Text(
                     '${lang == "fil" ? "Puntos" : "Score"}: ${_recommendation!.riskScore}/25',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: JHTextStyles.bodySmall.copyWith(
                       color: ColorConstant.grey,
                     ),
                   ),
@@ -285,13 +269,12 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _recommendation!.indicatorColor.withOpacity(0.2),
+              color: _recommendation!.indicatorColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               _recommendation!.timeframe,
-              style: TextStyle(
-                fontSize: 12,
+              style: JHTextStyles.label.copyWith(
                 fontWeight: FontWeight.w600,
                 color: _recommendation!.indicatorColor,
               ),
@@ -310,7 +293,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
         color: ColorConstant.lightBlueBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ColorConstant.bluelight.withOpacity(0.3),
+          color: ColorConstant.bluelight.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -319,8 +302,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
         children: [
           Text(
             lang == 'fil' ? 'Napiling Pasilidad' : 'Selected Facility',
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               fontWeight: FontWeight.w600,
               color: ColorConstant.grey,
             ),
@@ -331,7 +313,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: ColorConstant.bluelight.withOpacity(0.2),
+                  color: ColorConstant.bluelight.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -347,17 +329,14 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
                   children: [
                     Text(
                       _selectedFacility!.name,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                      style: JHTextStyles.bodyBase.copyWith(
                         color: ColorConstant.bluedark,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _selectedFacility!.typeName,
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: JHTextStyles.label.copyWith(
                         color: ColorConstant.bluelight,
                       ),
                     ),
@@ -388,8 +367,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
-              fontSize: 13,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.grey,
             ),
           ),
@@ -429,9 +407,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               Expanded(
                 child: Text(
                   lang == 'fil' ? 'I-scan ang QR Code' : 'Scan QR Code',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  style: JHTextStyles.h5.copyWith(
                     color: ColorConstant.bluedark,
                   ),
                 ),
@@ -463,7 +439,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     'QR Code Error',
-                    style: TextStyle(color: ColorConstant.gentleGray),
+                    style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.gentleGray),
                   ),
                 );
               },
@@ -477,8 +453,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
                 ? 'Ipakita sa facility para mabilis na makuha ang directions at contact info'
                 : 'Show at facility for quick access to directions and contact info',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
+            style: JHTextStyles.caption.copyWith(
               color: ColorConstant.gentleGray,
               height: 1.5,
             ),
@@ -498,13 +473,13 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            ColorConstant.calmingBlue.withOpacity(0.08),
-            ColorConstant.calmingBlue.withOpacity(0.03),
+            ColorConstant.calmingBlue.withValues(alpha: 0.08),
+            ColorConstant.calmingBlue.withValues(alpha: 0.03),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: ColorConstant.calmingBlue.withOpacity(0.2),
+          color: ColorConstant.calmingBlue.withValues(alpha: 0.2),
           width: 1.5,
         ),
       ),
@@ -516,7 +491,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: ColorConstant.calmingBlue.withOpacity(0.15),
+                  color: ColorConstant.calmingBlue.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -529,9 +504,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               Expanded(
                 child: Text(
                   lang == 'fil' ? 'Paghanda sa Appointment' : 'Appointment Preparation',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  style: JHTextStyles.h5.copyWith(
                     color: ColorConstant.trustBlue,
                   ),
                 ),
@@ -559,9 +532,8 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
                     Expanded(
                       child: Text(
                         tip,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: ColorConstant.bluedark.withOpacity(0.95),
+                        style: JHTextStyles.bodySmall.copyWith(
+                          color: ColorConstant.bluedark.withValues(alpha: 0.95),
                           height: 1.6,
                         ),
                       ),
@@ -638,7 +610,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -649,8 +621,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
         children: [
           Text(
             lang == 'fil' ? 'Rekomendasyon' : 'Recommendation',
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               fontWeight: FontWeight.w600,
               color: ColorConstant.grey,
             ),
@@ -658,17 +629,14 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
           const SizedBox(height: 12),
           Text(
             _recommendation!.actionTitle,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: JHTextStyles.h5.copyWith(
               color: ColorConstant.bluedark,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             _recommendation!.actionMessage,
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               color: ColorConstant.grey,
               height: 1.5,
             ),
@@ -716,7 +684,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            ColorConstant.warmBeige.withOpacity(0.5),
+            ColorConstant.warmBeige.withValues(alpha: 0.5),
             Colors.white,
           ],
         ),
@@ -740,9 +708,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               Expanded(
                 child: Text(
                   lang == 'fil' ? 'I-share sa Pamilya' : 'Share with Family',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  style: JHTextStyles.h5.copyWith(
                     color: ColorConstant.bluedark,
                   ),
                 ),
@@ -756,8 +722,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
             lang == 'fil'
                 ? 'Ipaalam sa iyong pamilya ang resulta ng assessment at kung saan ka pupunta.'
                 : 'Let your family know your assessment results and where you\'re going.',
-            style: TextStyle(
-              fontSize: 14,
+            style: JHTextStyles.bodySmall.copyWith(
               color: ColorConstant.gentleGray,
               height: 1.5,
             ),
@@ -773,8 +738,7 @@ class _ReferralSummaryScreenState extends State<ReferralSummaryScreen> {
               icon: const Icon(Icons.send, size: 20),
               label: Text(
                 lang == 'fil' ? 'I-send ang Message' : 'Send Message',
-                style: const TextStyle(
-                  fontSize: 15,
+                style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -846,7 +810,7 @@ Powered by Juan Heart × Philippine Heart Center''';
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ColorConstant.grey.withOpacity(0.1),
+        color: ColorConstant.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -862,8 +826,7 @@ Powered by Juan Heart × Philippine Heart Center''';
               const SizedBox(width: 8),
               Text(
                 lang == 'fil' ? 'Paalala' : 'Important Note',
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.bold,
                   color: ColorConstant.grey,
                 ),
@@ -875,8 +838,7 @@ Powered by Juan Heart × Philippine Heart Center''';
             lang == 'fil'
                 ? 'Ang PDF na ito ay maaaring ipakita sa doktor o healthcare provider. Ito ay naglalaman ng iyong risk assessment results at recommended action.'
                 : 'This PDF can be shown to your doctor or healthcare provider. It contains your risk assessment results and recommended action.',
-            style: TextStyle(
-              fontSize: 12,
+            style: JHTextStyles.label.copyWith(
               color: ColorConstant.grey,
               height: 1.5,
             ),

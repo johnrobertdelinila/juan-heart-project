@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/color_constants.dart';
 import '../../themes/app_decoration.dart';
 
+@Deprecated('Use StandardButton instead. This widget is only kept for legacy auth screens.')
 class CustomTextButton extends StatelessWidget {
   final String label;
   final double? width, height, buttonPadding;
@@ -55,9 +57,8 @@ class CustomTextButton extends StatelessWidget {
                 )
               : Text(
                   label,
-                  style: TextStyle(
+                  style: GoogleFonts.inter(
                     color: labelColor,
-                    fontFamily: "Poppins",
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),

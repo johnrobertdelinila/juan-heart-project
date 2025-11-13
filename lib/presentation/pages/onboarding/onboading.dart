@@ -1,11 +1,13 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:juan_heart/core/utils/color_constants.dart';
 
+import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:juan_heart/themes/app_styles.dart';
-import 'package:juan_heart/routes/app_routes.dart';
 import 'package:liquid_swipe/liquid_swipe.dart';
 import 'package:juan_heart/presentation/pages/home/home.dart';
+import 'package:juan_heart/presentation/widgets/cached_image.dart';
 
 import 'data/constants/slider_modal_data.dart';
 
@@ -33,7 +35,7 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
       body: Stack(
         children: [
           LiquidSwipe(
-            pages: [
+            pages: const [
               SliderScreen(
                 pageIndex: 0,
                 backgroundColor: Colors.white,
@@ -85,7 +87,7 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
             shape: BoxShape.circle,
             color: currentPage == index 
                 ? Colors.white 
-                : Colors.white.withOpacity(0.6),
+                : Colors.white.withValues(alpha: 0.6),
             border: Border.all(
               color: currentPage == index 
                   ? Colors.grey[600]! 
@@ -94,7 +96,7 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 2,
                 offset: const Offset(0, 1),
               ),
@@ -128,21 +130,30 @@ class SliderScreen extends StatelessWidget {
             children: [
               SizedBox(
                 height: 400,
-                child: Image.asset(SliderModalContant.onBoadingData[pageIndex]
-                    ["assetImagePath"]),
+                child: CachedImage.asset(
+                  SliderModalContant.onBoadingData[pageIndex]["assetImagePath"],
+                  height: 400,
+                  fit: BoxFit.contain,
+                  cacheHeight: 800, // 2x for retina displays
+                ),
               ),
               Column(
                 children: [
                   Text(
                     SliderModalContant.onBoadingData[pageIndex]["title"],
-                    style: AppStyle.txtDMSanBold27,
+                    style: JHTextStyles.h2.copyWith(
+                      color: ColorConstant.bluedark,
+                      fontSize: 27,
+                    ),
                   ),
                   const SizedBox(
                     height: 20,
                   ),
                   Text(
                     SliderModalContant.onBoadingData[pageIndex]["description"],
-                    style: AppStyle.txtPoppinsSemiBold18Light,
+                    style: JHTextStyles.h5.copyWith(
+                      color: ColorConstant.bluedark.withValues(alpha: 0.8),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -168,7 +179,10 @@ class SliderScreen extends StatelessWidget {
                     child: Center(
                       child: Text(
                         'Get Started',
-                        style: AppStyle.txtPoppinsBold18Dark,
+                        style: JHTextStyles.h5.copyWith(
+                          color: ColorConstant.bluedark,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

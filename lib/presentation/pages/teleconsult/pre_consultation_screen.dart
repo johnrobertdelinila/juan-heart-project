@@ -1007,7 +1007,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final isPrefilled = _prefilledFields.contains(question.id);
 
     return StandardCard(
-      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      backgroundColor: isPrefilled ? JHColors.infoLight : null,
       padding: const EdgeInsets.all(16),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1068,7 +1068,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final isPrefilled = _prefilledFields.contains(question.id);
 
     return StandardCard(
-      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      backgroundColor: isPrefilled ? JHColors.infoLight : null,
       padding: const EdgeInsets.all(16),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1137,7 +1137,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final isPrefilled = _prefilledFields.contains(question.id);
 
     return StandardCard(
-      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      backgroundColor: isPrefilled ? JHColors.infoLight : null,
       padding: const EdgeInsets.all(16),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1238,7 +1238,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final isPrefilled = _prefilledFields.contains(question.id);
 
     return StandardCard(
-      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      backgroundColor: isPrefilled ? JHColors.infoLight : null,
       padding: const EdgeInsets.all(16),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1342,7 +1342,7 @@ class _PreConsultationScreenState extends State<PreConsultationScreen> {
     final isPrefilled = _prefilledFields.contains(question.id);
 
     return StandardCard(
-      backgroundColor: isPrefilled ? const JHColors.infoLight : null,
+      backgroundColor: isPrefilled ? JHColors.infoLight : null,
       padding: const EdgeInsets.all(16),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

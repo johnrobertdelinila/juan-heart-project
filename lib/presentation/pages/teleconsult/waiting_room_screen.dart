@@ -4,6 +4,9 @@ import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/appointment_model.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 /// Enum for doctor availability status
 enum DoctorStatus {
@@ -107,7 +110,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: Text('OK'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -123,17 +126,15 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
       appBar: AppBar(
         backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
         title: Text(
           isFilipino ? 'Waiting Room' : 'Waiting Room',
-          style: TextStyle(
+          style: JHTextStyles.h4.copyWith(
             color: ColorConstant.bluedark,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
           ),
         ),
       ),
@@ -175,20 +176,15 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
   }
 
   Widget _buildAppointmentCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isFilipino ? 'Detalye ng Appointment' : 'Appointment Details',
-              style: TextStyle(
-                fontSize: 16,
+              style: JHTextStyles.bodyBase.copyWith(
                 fontWeight: FontWeight.w600,
-                fontFamily: 'Poppins',
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -217,7 +213,6 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -235,16 +230,14 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: JHTextStyles.caption.copyWith(
                     color: Colors.grey[600],
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: JHTextStyles.bodySmall.copyWith(
                     fontWeight: FontWeight.w500,
                     color: ColorConstant.bluedark,
                   ),
@@ -280,17 +273,14 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
         break;
     }
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(statusIcon, color: statusColor, size: 28),
@@ -302,8 +292,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                 children: [
                   Text(
                     isFilipino ? 'Status ng Doktor' : 'Doctor Status',
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: JHTextStyles.caption.copyWith(
                       color: Colors.grey[600],
                     ),
                   ),
@@ -321,10 +310,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                       const SizedBox(width: 8),
                       Text(
                         statusText,
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: JHTextStyles.bodyBase.copyWith(
                           fontWeight: FontWeight.w600,
-                          fontFamily: 'Poppins',
                           color: statusColor,
                         ),
                       ),
@@ -335,23 +322,18 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
             ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildQueueCard(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      color: ColorConstant.lightRed.withOpacity(0.05),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return AccentCard(
+      accentColor: ColorConstant.lightRed,
+      padding: const EdgeInsets.all(20),
+      child: Column(
           children: [
             Text(
               isFilipino ? 'Inyong Posisyon sa Pila' : 'Your Position in Queue',
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: Colors.grey[700],
               ),
             ),
@@ -362,11 +344,10 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
               children: [
                 Text(
                   '$_queuePosition',
-                  style: TextStyle(
+                  style: JHTextStyles.medicalDataLarge.copyWith(
                     fontSize: 64,
                     fontWeight: FontWeight.bold,
                     color: ColorConstant.lightRed,
-                    fontFamily: 'Poppins',
                     height: 1,
                   ),
                 ),
@@ -376,8 +357,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                     isFilipino
                         ? '${_queuePosition == 1 ? 'tao' : 'tao'} ang nauna'
                         : '${_queuePosition == 1 ? 'person' : 'people'} ahead',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: JHTextStyles.bodySmall.copyWith(
                       color: Colors.grey[600],
                     ),
                   ),
@@ -400,8 +380,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                     isFilipino
                         ? 'Tinatayang Paghihintay: $_estimatedWaitMinutes min'
                         : 'Estimated Wait: $_estimatedWaitMinutes min',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: JHTextStyles.bodySmall.copyWith(
                       fontWeight: FontWeight.w600,
                       color: ColorConstant.bluedark,
                     ),
@@ -418,32 +397,34 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
             ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildReadyCard(bool isFilipino) {
     return ScaleTransition(
       scale: _pulseAnimation,
-      child: Card(
-        elevation: 4,
-        color: Colors.green[50],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.green[300]!, width: 2),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.green[50],
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.green[300]!, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 15.0,
+              spreadRadius: 5.0,
+              offset: const Offset(5, 5),
+            ),
+          ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+        padding: const EdgeInsets.all(20),
+        child: Column(
             children: [
               Icon(Icons.videocam, color: Colors.green[700], size: 48),
               const SizedBox(height: 12),
               Text(
                 isFilipino ? 'Handa na Kayo!' : 'You\'re Ready!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
+                style: JHTextStyles.h3.copyWith(
                   color: Colors.green[700],
                 ),
               ),
@@ -453,15 +434,13 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                     ? 'Ang doktor ay handa na para sa inyong consultation'
                     : 'The doctor is ready for your consultation',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   color: Colors.green[800],
                 ),
               ),
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -480,12 +459,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
             'Ensure stable internet connection',
           ];
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -495,10 +471,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                 const SizedBox(width: 12),
                 Text(
                   isFilipino ? 'Mga Paalala' : 'Preparation Tips',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: JHTextStyles.bodyBase.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
                     color: ColorConstant.bluedark,
                   ),
                 ),
@@ -516,8 +490,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                       Expanded(
                         child: Text(
                           tip,
-                          style: TextStyle(
-                            fontSize: 14,
+                          style: JHTextStyles.bodySmall.copyWith(
                             color: Colors.grey[700],
                           ),
                         ),
@@ -527,17 +500,13 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                 )),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildTechnicalChecklist(bool isFilipino) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return StandardCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -547,10 +516,8 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
                 const SizedBox(width: 12),
                 Text(
                   isFilipino ? 'Technical Checklist' : 'Technical Checklist',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: JHTextStyles.bodyBase.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Poppins',
                     color: ColorConstant.bluedark,
                   ),
                 ),
@@ -579,7 +546,6 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -599,8 +565,7 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: Colors.grey[700],
               ),
             ),
@@ -611,29 +576,9 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen>
   }
 
   Widget _buildJoinButton(bool isFilipino) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _joinCall,
-        icon: const Icon(Icons.videocam, size: 24),
-        label: Text(
-          isFilipino ? 'Sumali sa Video Call' : 'Join Video Call',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green[600],
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 4,
-        ),
-      ),
+    return StandardButton.primary(
+      text: isFilipino ? 'Sumali sa Video Call' : 'Join Video Call',
+      onPressed: _joinCall,
     );
   }
 }

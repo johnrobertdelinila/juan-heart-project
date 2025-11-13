@@ -1,0 +1,18 @@
+# Android Release Keystore Configuration
+# Copy this file to key.properties and fill in your actual values
+# NEVER commit key.properties to version control!
+
+# Keystore password (used to protect the keystore file)
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+
+# Key password (password for the specific key alias)
+# Can be the same as storePassword
+keyPassword=YOUR_KEY_PASSWORD_HERE
+
+# Key alias (identifier for the signing key)
+# Should match the alias used when generating keystore
+keyAlias=juan-heart-key
+
+# Keystore file path (relative to android/ directory)
+# Default: android/app/juan-heart-release.jks
+storeFile=juan-heart-release.jks

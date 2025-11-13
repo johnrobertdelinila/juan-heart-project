@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,14 +40,14 @@ class FeatureFlagService {
       // Check if feature is globally enabled
       final globallyEnabled = flags[aiAssessmentEnabled] as bool? ?? false;
       if (!globallyEnabled) {
-        print('🚫 AI Assessment: Globally disabled');
+        debugPrint('🚫 AI Assessment: Globally disabled');
         return false;
       }
 
       // Check rollout percentage
       final rolloutPercentage = flags[aiRolloutPercentage] as int? ?? 0;
       if (rolloutPercentage >= 100) {
-        print('✅ AI Assessment: Enabled for all users (100% rollout)');
+        debugPrint('✅ AI Assessment: Enabled for all users (100% rollout)');
         return true;
       }
 
@@ -54,14 +55,14 @@ class FeatureFlagService {
       final userBucket = await _getUserBucket();
       final isInRollout = userBucket < rolloutPercentage;
 
-      print(
+      debugPrint(
         '🎲 AI Assessment: User bucket=$userBucket, Rollout=$rolloutPercentage%, Enabled=$isInRollout',
       );
 
       return isInRollout;
 
     } catch (e) {
-      print('❌ Feature flag check failed: $e');
+      debugPrint('❌ Feature flag check failed: $e');
       return false; // Fail closed for safety
     }
   }
@@ -75,12 +76,12 @@ class FeatureFlagService {
       // Try to get cached flags first
       final cached = await _getCachedFlags();
       if (cached != null) {
-        print('📦 Using cached feature flags');
+        debugPrint('📦 Using cached feature flags');
         return cached;
       }
 
       // Fetch from remote config
-      print('🌐 Fetching feature flags from remote config...');
+      debugPrint('🌐 Fetching feature flags from remote config...');
       final remote = await _fetchRemoteFlags();
 
       // Cache the remote flags
@@ -89,7 +90,7 @@ class FeatureFlagService {
       return remote;
 
     } catch (e) {
-      print('❌ Failed to get feature flags: $e. Using defaults.');
+      debugPrint('❌ Failed to get feature flags: $e. Using defaults.');
       return _defaultFlags;
     }
   }
@@ -115,11 +116,11 @@ class FeatureFlagService {
       // Save for consistency
       await prefs.setInt(_userBucketKey, newBucket);
 
-      print('🆕 Assigned user to bucket: $newBucket');
+      debugPrint('🆕 Assigned user to bucket: $newBucket');
       return newBucket;
 
     } catch (e) {
-      print('❌ Failed to get user bucket: $e');
+      debugPrint('❌ Failed to get user bucket: $e');
       return 0; // Conservative fallback
     }
   }
@@ -141,7 +142,7 @@ class FeatureFlagService {
       final now = DateTime.now();
 
       if (now.difference(cacheTime) > _cacheDuration) {
-        print('⏰ Feature flag cache expired');
+        debugPrint('⏰ Feature flag cache expired');
         return null;
       }
 
@@ -149,7 +150,7 @@ class FeatureFlagService {
       return cached['flags'] as Map<String, dynamic>;
 
     } catch (e) {
-      print('❌ Failed to read cached flags: $e');
+      debugPrint('❌ Failed to read cached flags: $e');
       return null;
     }
   }
@@ -164,7 +165,7 @@ class FeatureFlagService {
       final configUrl = dotenv.env['FEATURE_FLAGS_URL'];
 
       if (configUrl == null || configUrl.isEmpty) {
-        print('⚠️ FEATURE_FLAGS_URL not configured. Using defaults.');
+        debugPrint('⚠️ FEATURE_FLAGS_URL not configured. Using defaults.');
         return _defaultFlags;
       }
 
@@ -180,11 +181,11 @@ class FeatureFlagService {
       // Parse response
       final flags = jsonDecode(response.body) as Map<String, dynamic>;
 
-      print('✅ Remote feature flags fetched successfully');
+      debugPrint('✅ Remote feature flags fetched successfully');
       return flags;
 
     } catch (e) {
-      print('❌ Failed to fetch remote flags: $e');
+      debugPrint('❌ Failed to fetch remote flags: $e');
       return _defaultFlags;
     }
   }
@@ -203,10 +204,10 @@ class FeatureFlagService {
       // Save to storage
       await prefs.setString(_storageKey, jsonEncode(cache));
 
-      print('💾 Feature flags cached');
+      debugPrint('💾 Feature flags cached');
 
     } catch (e) {
-      print('❌ Failed to cache flags: $e');
+      debugPrint('❌ Failed to cache flags: $e');
     }
   }
 
@@ -216,9 +217,9 @@ class FeatureFlagService {
   static Future<void> setFeatureFlags(Map<String, dynamic> flags) async {
     try {
       await _cacheFlags(flags);
-      print('🔧 Feature flags manually set: $flags');
+      debugPrint('🔧 Feature flags manually set: $flags');
     } catch (e) {
-      print('❌ Failed to set feature flags: $e');
+      debugPrint('❌ Failed to set feature flags: $e');
     }
   }
 
@@ -229,9 +230,9 @@ class FeatureFlagService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_storageKey);
-      print('🗑️ Feature flag cache cleared');
+      debugPrint('🗑️ Feature flag cache cleared');
     } catch (e) {
-      print('❌ Failed to clear cache: $e');
+      debugPrint('❌ Failed to clear cache: $e');
     }
   }
 

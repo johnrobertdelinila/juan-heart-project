@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:juan_heart/core/utils/color_constants.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:intl/intl.dart';
 
 /// Date Range Selector Widget
@@ -61,7 +62,7 @@ class DateRangeSelector extends StatelessWidget {
                 color: ColorConstant.lightBlueBackground,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: ColorConstant.trustBlue.withOpacity(0.3),
+                  color: ColorConstant.trustBlue.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -75,8 +76,7 @@ class DateRangeSelector extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '${DateFormat.yMMMd().format(customStartDate!)} - ${DateFormat.yMMMd().format(customEndDate!)}',
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: JHTextStyles.bodySmall.copyWith(
                       color: ColorConstant.trustBlue,
                       fontWeight: FontWeight.w600,
                     ),
@@ -108,20 +108,17 @@ class DateRangeSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? ColorConstant.trustBlue
-              : Colors.white,
+          color: isSelected ? ColorConstant.trustBlue : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? ColorConstant.trustBlue
-                : ColorConstant.cardBorder,
+            color:
+                isSelected ? ColorConstant.trustBlue : ColorConstant.cardBorder,
             width: 1.5,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: ColorConstant.trustBlue.withOpacity(0.3),
+                    color: ColorConstant.trustBlue.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -140,8 +137,7 @@ class DateRangeSelector extends StatelessWidget {
             if (option == DateRangeOption.custom) const SizedBox(width: 6),
             Text(
               _getOptionLabel(option),
-              style: TextStyle(
-                fontSize: 13,
+              style: JHTextStyles.bodySmall.copyWith(
                 fontWeight: FontWeight.w600,
                 color: isSelected ? Colors.white : ColorConstant.gentleGray,
               ),
@@ -195,7 +191,8 @@ class DateRangeSelector extends StatelessWidget {
           child: child!,
         );
       },
-      helpText: language == 'fil' ? 'Pumili ng Date Range' : 'Select Date Range',
+      helpText:
+          language == 'fil' ? 'Pumili ng Date Range' : 'Select Date Range',
       cancelText: language == 'fil' ? 'Kanselahin' : 'Cancel',
       confirmText: language == 'fil' ? 'OK' : 'OK',
       saveText: language == 'fil' ? 'I-save' : 'Save',

@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'medical_triage_assessment_service.dart';
 import 'genkit_assessment_service.dart';
+import 'performance_service.dart';
 
 /// Abstract strategy for heart disease risk assessment
 ///
@@ -55,17 +57,37 @@ class RuleBasedAssessmentStrategy implements AssessmentStrategy {
   Future<Map<String, dynamic>> assessHeartDiseaseRisk(
     Map<String, dynamic> userInput,
   ) async {
-    print('📊 RULE-BASED ASSESSMENT: Starting...');
+    debugPrint('📊 RULE-BASED ASSESSMENT: Starting...');
 
-    // Call the existing rule-based service
-    final result = _service.assessHeartDiseaseRisk(userInput);
+    // Start risk calculation trace
+    final riskCalculationTrace = await PerformanceService.instance.startRiskCalculationTrace();
 
-    // Add metadata to indicate this is from rule-based system
-    result['assessmentMethod'] = 'rule_based';
-    result['validated'] = true;
+    try {
+      // Call the existing rule-based service
+      final result = _service.assessHeartDiseaseRisk(userInput);
 
-    print('✅ RULE-BASED ASSESSMENT: Complete');
-    return result;
+      // Stop risk calculation trace with metrics
+      await PerformanceService.instance.stopRiskCalculationTrace(
+        riskCalculationTrace,
+        calculationType: 'rule_based',
+        finalScore: result['finalRiskScore'] ?? 0,
+      );
+
+      // Add metadata to indicate this is from rule-based system
+      result['assessmentMethod'] = 'rule_based';
+      result['validated'] = true;
+
+      debugPrint('✅ RULE-BASED ASSESSMENT: Complete');
+      return result;
+    } catch (e) {
+      // Stop trace even if error occurs
+      await PerformanceService.instance.stopRiskCalculationTrace(
+        riskCalculationTrace,
+        calculationType: 'rule_based',
+        finalScore: 0,
+      );
+      rethrow;
+    }
   }
 }
 
@@ -96,7 +118,7 @@ class AIAssessmentStrategy implements AssessmentStrategy {
   Future<Map<String, dynamic>> assessHeartDiseaseRisk(
     Map<String, dynamic> userInput,
   ) async {
-    print('🤖 AI ASSESSMENT: Starting...');
+    debugPrint('🤖 AI ASSESSMENT: Starting...');
 
     try {
       // Call Genkit backend
@@ -106,14 +128,14 @@ class AIAssessmentStrategy implements AssessmentStrategy {
       result['assessmentMethod'] = 'ai';
       result['validated'] = result['validated'] ?? false;
 
-      print('✅ AI ASSESSMENT: Complete');
+      debugPrint('✅ AI ASSESSMENT: Complete');
       return result;
 
     } catch (e) {
-      print('❌ AI ASSESSMENT: Failed - $e');
+      debugPrint('❌ AI ASSESSMENT: Failed - $e');
 
       // Fallback to rule-based system
-      print('🔄 Falling back to rule-based assessment...');
+      debugPrint('🔄 Falling back to rule-based assessment...');
       final fallbackStrategy = RuleBasedAssessmentStrategy();
       final fallbackResult = await fallbackStrategy.assessHeartDiseaseRisk(userInput);
 
@@ -139,7 +161,7 @@ class AssessmentContext {
   /// Set a new assessment strategy
   void setStrategy(AssessmentStrategy strategy) {
     _strategy = strategy;
-    print('🔄 Assessment strategy changed to: ${_strategy.strategyName}');
+    debugPrint('🔄 Assessment strategy changed to: ${_strategy.strategyName}');
   }
 
   /// Get the current strategy

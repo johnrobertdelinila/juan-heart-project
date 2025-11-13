@@ -1,0 +1,180 @@
+# Firebase Test Lab Configuration for Juan Heart Mobile
+# This configuration defines test matrices for comprehensive device testing
+# across Android and iOS devices targeting the Philippine market
+
+# Android Test Configuration
+android:
+  # Target devices representing low-end, mid-range, and high-end segments
+  # Prioritized based on market share in Philippines
+  device-matrix:
+    # Low-End Devices (Critical for Juan Heart target users)
+    - model: j2lte  # Samsung Galaxy J2
+      version: 21  # Android 5.0 Lollipop
+      locale: en
+      orientation: portrait
+
+    - model: shamu  # Motorola Nexus 6
+      version: 23  # Android 6.0 Marshmallow
+      locale: en
+      orientation: portrait
+
+    # Mid-Range Devices (Most common)
+    - model: redfin  # Google Pixel 5
+      version: 26  # Android 8.0 Oreo
+      locale: en
+      orientation: portrait
+
+    - model: flame  # Google Pixel 4
+      version: 29  # Android 10
+      locale: en
+      orientation: portrait
+
+    # High-End Devices (Latest versions)
+    - model: oriole  # Google Pixel 6
+      version: 31  # Android 12
+      locale: en
+      orientation: portrait
+
+    - model: panther  # Google Pixel 7
+      version: 33  # Android 13
+      locale: en
+      orientation: portrait
+
+  # Test configuration
+  test-type: instrumentation
+  test-package: com.juanheart.mobile.test
+  test-runner-class: androidx.test.runner.AndroidJUnitRunner
+
+  # Timeout settings
+  timeout: 45m
+
+  # Environment variables
+  environment-variables:
+    - clearPackageData=true
+    - coverage=true
+
+  # Test targets (specific test suites)
+  test-targets:
+    - integration_test/device_compatibility_test.dart
+    - integration_test/performance_test.dart
+    - integration_test/ui_compatibility_test.dart
+
+# iOS Test Configuration
+ios:
+  # Target devices covering iOS versions 12-16
+  device-matrix:
+    # Older iOS versions (critical for accessibility)
+    - model: iphone8
+      version: 12.0
+      locale: en
+      orientation: portrait
+
+    - model: iphonex
+      version: 13.0
+      locale: en
+      orientation: portrait
+
+    # Current iOS versions (most users)
+    - model: iphone11
+      version: 14.0
+      locale: en
+      orientation: portrait
+
+    - model: iphone12
+      version: 15.0
+      locale: en
+      orientation: portrait
+
+    # Latest iOS versions
+    - model: iphone13
+      version: 16.0
+      locale: en
+      orientation: portrait
+
+  # Test configuration
+  test-type: xctest
+
+  # Timeout settings
+  timeout: 45m
+
+# Performance Benchmarks
+performance-thresholds:
+  low-end:
+    app-launch-time: 4000  # milliseconds
+    memory-usage: 200  # MB
+    battery-drain: 10  # percent per hour
+    assessment-completion: 30000  # milliseconds
+
+  mid-range:
+    app-launch-time: 3000
+    memory-usage: 150
+    battery-drain: 8
+    assessment-completion: 20000
+
+  high-end:
+    app-launch-time: 2000
+    memory-usage: 120
+    battery-drain: 6
+    assessment-completion: 15000
+
+# Test scenarios to execute
+test-scenarios:
+  - name: app_installation
+    description: Verify app installs successfully
+    priority: critical
+
+  - name: user_authentication
+    description: Test registration and login flows
+    priority: critical
+
+  - name: heart_risk_assessment
+    description: Complete risk assessment with all symptoms
+    priority: critical
+
+  - name: offline_sync
+    description: Verify offline data storage and sync
+    priority: critical
+
+  - name: appointment_booking
+    description: Book and manage appointments
+    priority: high
+
+  - name: emergency_features
+    description: Test stroke emergency and SOS features
+    priority: critical
+
+  - name: localization
+    description: Verify English and Filipino languages
+    priority: high
+
+  - name: performance_metrics
+    description: Measure launch time, memory, battery
+    priority: high
+
+  - name: ui_rendering
+    description: Verify UI renders correctly on all screens
+    priority: high
+
+# Notification settings
+notifications:
+  email: juanheart.dev@example.com
+  slack-webhook: ${SLACK_WEBHOOK_URL}
+
+# Retry configuration
+retry:
+  max-attempts: 3
+  backoff-multiplier: 2
+
+# Output configuration
+output:
+  results-dir: test_lab/results
+  artifacts:
+    - screenshots
+    - videos
+    - logs
+    - coverage
+
+  report-format:
+    - html
+    - json
+    - junit-xml

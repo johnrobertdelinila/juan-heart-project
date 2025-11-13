@@ -1,9 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:juan_heart/models/appointment_model.dart';
 import 'package:juan_heart/services/appointment_notification_service.dart';
 import 'package:juan_heart/services/sync_queue_service.dart';
-import 'package:juan_heart/services/appointment_sync_service.dart';
 
 /// Service for managing appointments with local storage and backend sync
 class AppointmentService {
@@ -24,8 +24,18 @@ class AppointmentService {
           .map((json) => Appointment.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Error loading appointments: $e');
+      debugPrint('Error loading appointments: $e');
       return [];
+    }
+  }
+
+  /// Get a specific appointment by ID from local storage.
+  static Future<Appointment?> getAppointmentById(String appointmentId) async {
+    final appointments = await getAppointments();
+    try {
+      return appointments.firstWhere((apt) => apt.id == appointmentId);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -36,7 +46,7 @@ class AppointmentService {
 
       // Check for duplicate IDs
       if (appointments.any((apt) => apt.id == appointment.id)) {
-        print('⚠️ Appointment with ID ${appointment.id} already exists');
+        debugPrint('⚠️ Appointment with ID ${appointment.id} already exists');
         return false;
       }
 
@@ -52,19 +62,19 @@ class AppointmentService {
       // Schedule notification reminders
       try {
         await AppointmentNotificationService().scheduleAppointmentReminders(appointmentWithSyncStatus);
-        print('✅ Notification reminders scheduled for: ${appointment.id}');
+        debugPrint('✅ Notification reminders scheduled for: ${appointment.id}');
       } catch (e) {
-        print('⚠️ Failed to schedule notifications: $e');
+        debugPrint('⚠️ Failed to schedule notifications: $e');
         // Don't fail the whole operation if notifications fail
       }
 
       // Add to sync queue for backend sync (non-blocking)
       _queueAppointmentSync(appointmentWithSyncStatus);
 
-      print('✅ Appointment saved locally: ${appointment.id}');
+      debugPrint('✅ Appointment saved locally: ${appointment.id}');
       return true;
     } catch (e) {
-      print('❌ Error saving appointment: $e');
+      debugPrint('❌ Error saving appointment: $e');
       return false;
     }
   }
@@ -79,9 +89,9 @@ class AppointmentService {
       );
 
       SyncQueueService().addOperation(syncOperation);
-      print('📤 Appointment queued for sync: ${appointment.id}');
+      debugPrint('📤 Appointment queued for sync: ${appointment.id}');
     } catch (e) {
-      print('⚠️ Failed to queue appointment sync: $e');
+      debugPrint('⚠️ Failed to queue appointment sync: $e');
       // Don't fail the operation - appointment is saved locally
     }
   }
@@ -93,17 +103,17 @@ class AppointmentService {
       final index = appointments.indexWhere((apt) => apt.id == updatedAppointment.id);
 
       if (index == -1) {
-        print('⚠️ Appointment not found: ${updatedAppointment.id}');
+        debugPrint('⚠️ Appointment not found: ${updatedAppointment.id}');
         return false;
       }
 
       appointments[index] = updatedAppointment;
       await _saveAppointmentsList(appointments);
 
-      print('✅ Appointment updated: ${updatedAppointment.id}');
+      debugPrint('✅ Appointment updated: ${updatedAppointment.id}');
       return true;
     } catch (e) {
-      print('❌ Error updating appointment: $e');
+      debugPrint('❌ Error updating appointment: $e');
       return false;
     }
   }
@@ -117,7 +127,7 @@ class AppointmentService {
       appointments.removeWhere((apt) => apt.id == appointmentId);
 
       if (appointments.length == initialLength) {
-        print('⚠️ Appointment not found: $appointmentId');
+        debugPrint('⚠️ Appointment not found: $appointmentId');
         return false;
       }
 
@@ -126,15 +136,15 @@ class AppointmentService {
       // Cancel notification reminders
       try {
         await AppointmentNotificationService().cancelAppointmentReminders(appointmentId);
-        print('✅ Notification reminders cancelled for: $appointmentId');
+        debugPrint('✅ Notification reminders cancelled for: $appointmentId');
       } catch (e) {
-        print('⚠️ Failed to cancel notifications: $e');
+        debugPrint('⚠️ Failed to cancel notifications: $e');
       }
 
-      print('✅ Appointment deleted: $appointmentId');
+      debugPrint('✅ Appointment deleted: $appointmentId');
       return true;
     } catch (e) {
-      print('❌ Error deleting appointment: $e');
+      debugPrint('❌ Error deleting appointment: $e');
       return false;
     }
   }
@@ -196,15 +206,15 @@ class AppointmentService {
       // Cancel notification reminders
       try {
         await AppointmentNotificationService().cancelAppointmentReminders(appointmentId);
-        print('✅ Notification reminders cancelled for: $appointmentId');
+        debugPrint('✅ Notification reminders cancelled for: $appointmentId');
       } catch (e) {
-        print('⚠️ Failed to cancel notifications: $e');
+        debugPrint('⚠️ Failed to cancel notifications: $e');
       }
 
-      print('✅ Appointment cancelled: $appointmentId');
+      debugPrint('✅ Appointment cancelled: $appointmentId');
       return true;
     } catch (e) {
-      print('❌ Error cancelling appointment: $e');
+      debugPrint('❌ Error cancelling appointment: $e');
       return false;
     }
   }
@@ -235,15 +245,15 @@ class AppointmentService {
       // Reschedule notification reminders (cancel old, schedule new)
       try {
         await AppointmentNotificationService().rescheduleAppointmentReminders(updatedAppointment);
-        print('✅ Notification reminders rescheduled for: $appointmentId');
+        debugPrint('✅ Notification reminders rescheduled for: $appointmentId');
       } catch (e) {
-        print('⚠️ Failed to reschedule notifications: $e');
+        debugPrint('⚠️ Failed to reschedule notifications: $e');
       }
 
-      print('✅ Appointment rescheduled: $appointmentId');
+      debugPrint('✅ Appointment rescheduled: $appointmentId');
       return true;
     } catch (e) {
-      print('❌ Error rescheduling appointment: $e');
+      debugPrint('❌ Error rescheduling appointment: $e');
       return false;
     }
   }
@@ -357,10 +367,10 @@ class AppointmentService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_storageKey);
-      print('✅ All appointments cleared');
+      debugPrint('✅ All appointments cleared');
       return true;
     } catch (e) {
-      print('❌ Error clearing appointments: $e');
+      debugPrint('❌ Error clearing appointments: $e');
       return false;
     }
   }
@@ -402,10 +412,17 @@ class AppointmentService {
       appointments[index] = updatedAppointment;
       await _saveAppointmentsList(appointments);
 
-      print('✅ Appointment marked as completed: $appointmentId');
+      // Reschedule follow-up reminder based on completion date (hybrid approach)
+      try {
+        await AppointmentNotificationService().rescheduleFollowUpOnCompletion(updatedAppointment);
+      } catch (e) {
+        debugPrint('⚠️ Error rescheduling follow-up on completion: $e');
+      }
+
+      debugPrint('✅ Appointment marked as completed: $appointmentId');
       return true;
     } catch (e) {
-      print('❌ Error marking appointment as completed: $e');
+      debugPrint('❌ Error marking appointment as completed: $e');
       return false;
     }
   }
@@ -427,10 +444,10 @@ class AppointmentService {
       appointments[index] = updatedAppointment;
       await _saveAppointmentsList(appointments);
 
-      print('✅ Appointment confirmed: $appointmentId');
+      debugPrint('✅ Appointment confirmed: $appointmentId');
       return true;
     } catch (e) {
-      print('❌ Error confirming appointment: $e');
+      debugPrint('❌ Error confirming appointment: $e');
       return false;
     }
   }
@@ -440,29 +457,34 @@ class AppointmentService {
     required String appointmentId,
     required String syncStatus,
     int? backendId,
+    String? syncErrorMessage,
   }) async {
     try {
       final appointments = await getAppointments();
       final index = appointments.indexWhere((apt) => apt.id == appointmentId);
 
       if (index == -1) {
-        print('⚠️ Appointment not found for sync status update: $appointmentId');
+        debugPrint('⚠️ Appointment not found for sync status update: $appointmentId');
         return false;
       }
 
       final updatedAppointment = appointments[index].copyWith(
         syncStatus: syncStatus,
         backendId: backendId ?? appointments[index].backendId,
+        syncErrorMessage: syncErrorMessage,
         lastSyncedAt: syncStatus == 'synced' ? DateTime.now() : null,
       );
 
       appointments[index] = updatedAppointment;
       await _saveAppointmentsList(appointments);
 
-      print('✅ Sync status updated for $appointmentId: $syncStatus');
+      debugPrint('✅ Sync status updated for $appointmentId: $syncStatus');
+      if (syncErrorMessage != null) {
+        debugPrint('📋 Error message: $syncErrorMessage');
+      }
       return true;
     } catch (e) {
-      print('❌ Error updating sync status: $e');
+      debugPrint('❌ Error updating sync status: $e');
       return false;
     }
   }

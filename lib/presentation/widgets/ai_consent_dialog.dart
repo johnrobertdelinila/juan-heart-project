@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/services/ai_consent_service.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Dialog for obtaining user consent for AI assessment
@@ -43,10 +46,7 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
               isFilipino
                   ? 'Pahintulot para sa AI Assessment'
                   : 'AI Assessment Consent',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Poppins',
+              style: JHTextStyles.h5.copyWith(
                 color: ColorConstant.bluedark,
               ),
             ),
@@ -75,10 +75,8 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
                       isFilipino
                           ? 'Kailangan ng inyong pahintulot bago gamitin ang AI'
                           : 'Your consent is required to use AI assessment',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: JHTextStyles.caption.copyWith(
                         color: Colors.blue[900],
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -91,8 +89,7 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
             // Consent text
             Text(
               AIConsentService.getConsentText(isFilipino: isFilipino),
-              style: TextStyle(
-                fontSize: 13,
+              style: JHTextStyles.bodySmall.copyWith(
                 height: 1.5,
                 color: ColorConstant.bluedark,
               ),
@@ -105,14 +102,14 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
               onTap: _openPrivacyPolicy,
               child: Row(
                 children: [
-                  Icon(Icons.open_in_new, size: 16, color: ColorConstant.lightRed),
+                  Icon(Icons.open_in_new,
+                      size: 16, color: ColorConstant.lightRed),
                   const SizedBox(width: 8),
                   Text(
                     isFilipino
                         ? 'Basahin ang Privacy Policy'
                         : 'Read Privacy Policy',
-                    style: TextStyle(
-                      fontSize: 13,
+                    style: JHTextStyles.bodySmall.copyWith(
                       color: ColorConstant.lightRed,
                       decoration: TextDecoration.underline,
                       fontWeight: FontWeight.w600,
@@ -150,8 +147,7 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
                         isFilipino
                             ? 'Naiintindihan ko at sumasang-ayon ako sa mga kondisyon sa itaas'
                             : 'I understand and agree to the terms above',
-                        style: TextStyle(
-                          fontSize: 13,
+                        style: JHTextStyles.bodySmall.copyWith(
                           color: ColorConstant.bluedark,
                           fontWeight: FontWeight.w500,
                         ),
@@ -174,9 +170,8 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
                 },
           child: Text(
             isFilipino ? 'Kanselahin' : 'Cancel',
-            style: TextStyle(
+            style: JHTextStyles.button.copyWith(
               color: Colors.grey[600],
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -202,9 +197,8 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
                 )
               : Text(
                   isFilipino ? 'Sumang-ayon' : 'Accept',
-                  style: const TextStyle(
+                  style: JHTextStyles.button.copyWith(
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
         ),
@@ -219,13 +213,37 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
     });
 
     try {
-      // Grant consent
-      final success = await AIConsentService.grantConsent();
+      debugPrint('🔒 [AI Consent] Starting consent grant process...');
+
+      // Grant consent with timeout protection
+      final success = await AIConsentService.grantConsent().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⚠️ [AI Consent] Timeout after 5 seconds');
+          throw TimeoutException('Consent save timeout');
+        },
+      );
+
+      debugPrint('✅ [AI Consent] Consent granted successfully: $success');
+
+      if (!mounted) {
+        debugPrint('⚠️ [AI Consent] Widget unmounted, aborting...');
+        return;
+      }
 
       if (success) {
-        // Show success message
         final isFilipino = Get.locale?.languageCode == 'fil';
 
+        // Close dialog FIRST, then show snackbar
+        // This prevents navigation stack conflicts
+        Get.back(result: true);
+
+        debugPrint('🚪 [AI Consent] Dialog dismissed');
+
+        // Wait for dialog close animation to complete
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Now show success message
         Get.snackbar(
           isFilipino ? 'Salamat!' : 'Thank you!',
           isFilipino
@@ -237,13 +255,33 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
           duration: const Duration(seconds: 2),
         );
 
-        // Return success
-        Get.back(result: true);
+        debugPrint('✅ [AI Consent] Success snackbar shown');
       } else {
         throw Exception('Failed to save consent');
       }
+    } on TimeoutException catch (e) {
+      debugPrint('❌ [AI Consent] Timeout: $e');
 
+      if (!mounted) return;
+
+      final isFilipino = Get.locale?.languageCode == 'fil';
+
+      Get.snackbar(
+        'Error',
+        isFilipino ? 'Timeout: Subukan ulit.' : 'Timeout: Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+
+      setState(() {
+        _isProcessing = false;
+      });
     } catch (e) {
+      debugPrint('❌ [AI Consent] Error: $e');
+
+      if (!mounted) return;
+
       // Show error
       final isFilipino = Get.locale?.languageCode == 'fil';
 
@@ -273,7 +311,6 @@ class _AIConsentDialogState extends State<AIConsentDialog> {
       } else {
         throw Exception('Could not launch privacy policy URL');
       }
-
     } catch (e) {
       final isFilipino = Get.locale?.languageCode == 'fil';
 

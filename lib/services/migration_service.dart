@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/appointment_service.dart';
 import '../services/sync_queue_service.dart';
@@ -15,7 +16,7 @@ class MigrationService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(_migrationCompleteKey) ?? false;
     } catch (e) {
-      print('❌ Error checking migration status: $e');
+      debugPrint('❌ Error checking migration status: $e');
       return false;
     }
   }
@@ -25,9 +26,9 @@ class MigrationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_migrationCompleteKey, true);
-      print('✅ Migration marked as complete');
+      debugPrint('✅ Migration marked as complete');
     } catch (e) {
-      print('❌ Error marking migration complete: $e');
+      debugPrint('❌ Error marking migration complete: $e');
     }
   }
 
@@ -36,13 +37,13 @@ class MigrationService {
   /// This should be called on app startup if migration hasn't been completed.
   /// Loads all local appointments and queues them for sync to backend.
   static Future<MigrationResult> migrateAppointments() async {
-    print('🔄 Starting appointment migration...');
+    debugPrint('🔄 Starting appointment migration...');
 
     try {
       // Check if already migrated
       if (await isMigrationComplete()) {
-        print('ℹ️ Migration already completed, skipping...');
-        return MigrationResult(
+        debugPrint('ℹ️ Migration already completed, skipping...');
+        return const MigrationResult(
           success: true,
           alreadyMigrated: true,
           totalAppointments: 0,
@@ -54,9 +55,9 @@ class MigrationService {
       final appointments = await AppointmentService.getAppointments();
 
       if (appointments.isEmpty) {
-        print('ℹ️ No appointments to migrate');
+        debugPrint('ℹ️ No appointments to migrate');
         await markMigrationComplete();
-        return MigrationResult(
+        return const MigrationResult(
           success: true,
           alreadyMigrated: false,
           totalAppointments: 0,
@@ -64,7 +65,7 @@ class MigrationService {
         );
       }
 
-      print('📊 Found ${appointments.length} appointments to migrate');
+      debugPrint('📊 Found ${appointments.length} appointments to migrate');
 
       int queuedCount = 0;
       int skippedCount = 0;
@@ -73,7 +74,7 @@ class MigrationService {
       for (final appointment in appointments) {
         // Skip appointments that are already synced
         if (appointment.syncStatus == 'synced' && appointment.backendId != null) {
-          print('⏭️  Skipping already synced appointment: ${appointment.id}');
+          debugPrint('⏭️  Skipping already synced appointment: ${appointment.id}');
           skippedCount++;
           continue;
         }
@@ -96,16 +97,16 @@ class MigrationService {
         await SyncQueueService().addOperation(syncOperation);
         queuedCount++;
 
-        print('✅ Queued appointment ${queuedCount}/${appointments.length - skippedCount}: ${appointment.id}');
+        debugPrint('✅ Queued appointment $queuedCount/${appointments.length - skippedCount}: ${appointment.id}');
       }
 
       // Mark migration as complete
       await markMigrationComplete();
 
-      print('🎉 Migration completed successfully!');
-      print('   Total: ${appointments.length}');
-      print('   Queued: $queuedCount');
-      print('   Skipped: $skippedCount');
+      debugPrint('🎉 Migration completed successfully!');
+      debugPrint('   Total: ${appointments.length}');
+      debugPrint('   Queued: $queuedCount');
+      debugPrint('   Skipped: $skippedCount');
 
       return MigrationResult(
         success: true,
@@ -115,7 +116,7 @@ class MigrationService {
         skipped: skippedCount,
       );
     } catch (e) {
-      print('❌ Migration failed: $e');
+      debugPrint('❌ Migration failed: $e');
       return MigrationResult(
         success: false,
         alreadyMigrated: false,
@@ -133,9 +134,9 @@ class MigrationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_migrationCompleteKey);
-      print('⚠️ Migration status reset');
+      debugPrint('⚠️ Migration status reset');
     } catch (e) {
-      print('❌ Error resetting migration status: $e');
+      debugPrint('❌ Error resetting migration status: $e');
     }
   }
 }

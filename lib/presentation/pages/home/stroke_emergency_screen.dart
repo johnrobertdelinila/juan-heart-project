@@ -8,11 +8,11 @@ import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc_event.dart';
 import 'package:juan_heart/bloc/home/get_user_data/fetch_bloc_state.dart';
 import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/user_model.dart';
+import 'package:juan_heart/presentation/widgets/cached_image.dart';
 import 'package:juan_heart/routes/app_routes.dart';
 import 'package:juan_heart/themes/app_decoration.dart';
 import 'package:twilio_flutter/twilio_flutter.dart';
-
-import '../../../themes/app_styles.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 class StrokeEmergencyScreen extends StatefulWidget {
   final UserModel? userModel;
@@ -112,22 +112,18 @@ class _StrokeEmergencyScreenState extends State<StrokeEmergencyScreen> {
     return Scaffold(
       backgroundColor: ColorConstant.whiteBackground,
       appBar: AppBar(
-        centerTitle: true,
+        backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
+          onPressed: () => Get.toNamed(AppRoutes.home),
+        ),
         title: Text(
           "stroke".tr,
-          style: TextStyle(
+          style: JHTextStyles.h4.copyWith(
             color: ColorConstant.bluedark,
           ),
-        ),
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: ColorConstant.bluedark,
-          ),
-          onPressed: () {
-            Get.toNamed(AppRoutes.home);
-          },
         ),
         actions: [
           IconButton(
@@ -138,7 +134,6 @@ class _StrokeEmergencyScreenState extends State<StrokeEmergencyScreen> {
             ),
           ),
         ],
-        backgroundColor: ColorConstant.whiteBackground,
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -177,13 +172,12 @@ class _StrokeEmergencyScreenState extends State<StrokeEmergencyScreen> {
                       children: [
                         Text(
                           "whatToDo".tr,
-                          style: AppStyle.txtPoppinsSemiBold18Dark,
+                          style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
                         ),
                         Text(
                           "4 Steps",
-                          style: TextStyle(
-                            color: ColorConstant.bluedark.withOpacity(0.6),
-                            fontFamily: "Poppins",
+                          style: JHTextStyles.bodySmall.copyWith(
+                            color: ColorConstant.bluedark.withValues(alpha: 0.6),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -239,7 +233,7 @@ class _StrokeEmergencyScreenState extends State<StrokeEmergencyScreen> {
             width: MediaQuery.of(context).size.width * 0.75,
             child: Text(
               message,
-              style: AppStyle.txtPoppinsSemiBold14LightGray,
+              style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark.withValues(alpha: 0.5)),
             ),
           ),
         ],
@@ -272,20 +266,17 @@ class CallAnAmbulance extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              ImageConstant.iconAlert,
-              width: 30,
-              height: 30,
+            CachedIconImage(
+              assetPath: ImageConstant.iconAlert,
+              size: 30,
             ),
             const SizedBox(
               width: 22,
             ),
             Text(
               "callAmb".tr,
-              style: TextStyle(
+              style: JHTextStyles.button.copyWith(
                 color: ColorConstant.lightRed,
-                fontFamily: "Poppins",
-                fontSize: 16,
               ),
             ),
           ],
@@ -309,7 +300,7 @@ class WhatToDoWidget extends StatelessWidget {
       width: 5,
       height: 5,
       decoration: BoxDecoration(
-        color: ColorConstant.bluedark.withOpacity(0.5),
+        color: ColorConstant.bluedark.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(100),
       ),
     );
@@ -331,14 +322,14 @@ class WhatToDoWidget extends StatelessWidget {
                     children: [
                       Text(
                         index,
-                        style: AppStyle.txtPoppinsSemiBold18Light,
+                        style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark.withValues(alpha: 0.8)),
                       ),
                       const SizedBox(
                         width: 15,
                       ),
                       Icon(
                         Icons.adjust_sharp,
-                        color: ColorConstant.bluedark.withOpacity(0.8),
+                        color: ColorConstant.bluedark.withValues(alpha: 0.8),
                       ),
                       const SizedBox(
                         width: 20,
@@ -365,13 +356,12 @@ class WhatToDoWidget extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: AppStyle.txtPoppinsSemiBold16Dark,
+                      style: JHTextStyles.bodyBase.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.w600),
                     ),
                     Text(
                       description,
-                      style: TextStyle(
-                        color: ColorConstant.bluedark.withOpacity(0.6),
-                        fontFamily: "Poppins",
+                      style: JHTextStyles.bodySmall.copyWith(
+                        color: ColorConstant.bluedark.withValues(alpha: 0.6),
                       ),
                     ),
                   ],

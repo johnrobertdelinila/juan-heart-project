@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:juan_heart/core/app_exports.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 /// Widget for displaying validation comparison when AI and rule-based scores differ
 ///
@@ -22,34 +23,38 @@ class ValidationComparisonView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Extract data
+    // Always show comparison when AI is used for transparency
+    // Parent screen controls visibility
     final hasDiscrepancy = aiResult['hasDiscrepancy'] as bool? ?? false;
-    if (!hasDiscrepancy) {
-      return const SizedBox.shrink(); // Don't show if no discrepancy
-    }
-
     final scoreDifference = aiResult['scoreDifference'] as int? ?? 0;
     final aiScore = aiResult['finalRiskScore'] as int? ?? 0;
     final ruleBasedScore = aiResult['ruleBasedScore'] as int? ?? 0;
     final aiCategory = aiResult['riskCategory'] as String? ?? 'Unknown';
-    final ruleBasedCategory = aiResult['ruleBasedCategory'] as String? ?? 'Unknown';
+    final ruleBasedCategory =
+        aiResult['ruleBasedCategory'] as String? ?? 'Unknown';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Warning Banner
+        // Info/Warning Banner - Show different styling based on discrepancy size
         Container(
           margin: const EdgeInsets.only(bottom: 20),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.orange[50],
+            color: hasDiscrepancy ? Colors.orange[50] : Colors.blue[50],
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.orange[300]!, width: 2),
+            border: Border.all(
+              color: hasDiscrepancy ? Colors.orange[300]! : Colors.blue[300]!,
+              width: 2,
+            ),
           ),
           child: Row(
             children: [
               Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange[700],
+                hasDiscrepancy
+                    ? Icons.warning_amber_rounded
+                    : Icons.info_outline,
+                color: hasDiscrepancy ? Colors.orange[700] : Colors.blue[700],
                 size: 28,
               ),
               const SizedBox(width: 12),
@@ -59,13 +64,17 @@ class ValidationComparisonView extends StatelessWidget {
                   children: [
                     Text(
                       isFilipino
-                          ? 'May Pagkakaiba sa mga Resulta'
-                          : 'Results Differ',
-                      style: TextStyle(
-                        fontSize: 16,
+                          ? (hasDiscrepancy
+                              ? 'May Pagkakaiba sa mga Resulta'
+                              : 'Dual Assessment')
+                          : (hasDiscrepancy
+                              ? 'Results Differ'
+                              : 'Dual Assessment'),
+                      style: JHTextStyles.bodyBase.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.orange[900],
-                        fontFamily: 'Poppins',
+                        color: hasDiscrepancy
+                            ? Colors.orange[900]
+                            : Colors.blue[900],
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -73,10 +82,10 @@ class ValidationComparisonView extends StatelessWidget {
                       isFilipino
                           ? 'Ang AI at rule-based assessment ay nagkaiba ng $scoreDifference points. Tingnan ang parehong resulta sa ibaba.'
                           : 'AI and rule-based assessments differ by $scoreDifference points. Both results shown below for your review.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.orange[800],
-                        height: 1.4,
+                      style: JHTextStyles.caption.copyWith(
+                        color: hasDiscrepancy
+                            ? Colors.orange[800]
+                            : Colors.blue[800],
                       ),
                     ),
                   ],
@@ -115,7 +124,8 @@ class ValidationComparisonView extends StatelessWidget {
                 badgeColor: Colors.green,
                 score: ruleBasedScore,
                 category: ruleBasedCategory,
-                recommendation: aiResult['ruleBasedRecommendation'] as String? ?? '',
+                recommendation:
+                    aiResult['ruleBasedRecommendation'] as String? ?? '',
                 explanation: null,
                 confidence: null,
                 isAI: false,
@@ -145,135 +155,122 @@ class ValidationComparisonView extends StatelessWidget {
     required bool isAI,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isAI ? Colors.orange[200]! : Colors.green[200]!,
           width: 2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(15),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
-                  color: ColorConstant.bluedark,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: badgeColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // Score
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _getCategoryColor(category).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
+      child: StandardCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  score.toString(),
-                  style: TextStyle(
-                    fontSize: 32,
+                  title,
+                  style: JHTextStyles.bodySmall.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: _getCategoryColor(category),
-                    fontFamily: 'Poppins',
+                    color: ColorConstant.bluedark,
                   ),
                 ),
-                Text(
-                  category,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _getCategoryColor(category),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badge,
+                    style: JHTextStyles.caption.copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: badgeColor,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          // Recommendation
-          Text(
-            recommendation,
-            style: const TextStyle(
-              fontSize: 11,
-              height: 1.4,
-              color: Colors.black87,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          // AI-specific fields
-          if (isAI && explanation != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              explanation,
-              style: TextStyle(
-                fontSize: 10,
-                height: 1.3,
-                color: Colors.grey[600],
-                fontStyle: FontStyle.italic,
+            // Score
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _getCategoryColor(category).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              maxLines: 4,
+              child: Column(
+                children: [
+                  Text(
+                    score.toString(),
+                    style: JHTextStyles.h2.copyWith(
+                      color: _getCategoryColor(category),
+                    ),
+                  ),
+                  Text(
+                    category,
+                    style: JHTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: _getCategoryColor(category),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Recommendation
+            Text(
+              recommendation,
+              style: JHTextStyles.caption.copyWith(
+                fontSize: 11,
+                color: Colors.black87,
+              ),
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-          ],
 
-          if (isAI && confidence != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.analytics, size: 12, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  '${(confidence * 100).toStringAsFixed(0)}% confidence',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[600],
-                  ),
+            // AI-specific fields
+            if (isAI && explanation != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                explanation,
+                style: JHTextStyles.caption.copyWith(
+                  fontSize: 10,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
                 ),
-              ],
-            ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+
+            if (isAI && confidence != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.analytics, size: 12, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${(confidence * 100).toStringAsFixed(0)}% confidence',
+                    style: JHTextStyles.caption.copyWith(
+                      fontSize: 10,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -295,14 +292,10 @@ class ValidationComparisonView extends StatelessWidget {
               Icon(Icons.help_outline, color: Colors.blue[700], size: 20),
               const SizedBox(width: 8),
               Text(
-                isFilipino
-                    ? 'Bakit may pagkakaiba?'
-                    : 'Why do they differ?',
-                style: TextStyle(
-                  fontSize: 14,
+                isFilipino ? 'Bakit may pagkakaiba?' : 'Why do they differ?',
+                style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.blue[900],
-                  fontFamily: 'Poppins',
                 ),
               ),
             ],
@@ -311,16 +304,14 @@ class ValidationComparisonView extends StatelessWidget {
           Text(
             isFilipino
                 ? '• Ang AI ay gumagamit ng mas malawak na context analysis\n'
-                  '• Ang rule-based algorithm ay sumusunod sa mahigpit na clinical guidelines\n'
-                  '• Ang parehong resulta ay valid para sa inyong consideration\n'
-                  '• Kung may tanong, kumonsulta sa doktor'
+                    '• Ang rule-based algorithm ay sumusunod sa mahigpit na clinical guidelines\n'
+                    '• Ang parehong resulta ay valid para sa inyong consideration\n'
+                    '• Kung may tanong, kumonsulta sa doktor'
                 : '• AI uses broader context analysis\n'
-                  '• Rule-based algorithm follows strict clinical guidelines\n'
-                  '• Both results are valid for your consideration\n'
-                  '• Consult with a doctor if you have questions',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.5,
+                    '• Rule-based algorithm follows strict clinical guidelines\n'
+                    '• Both results are valid for your consideration\n'
+                    '• Consult with a doctor if you have questions',
+            style: JHTextStyles.caption.copyWith(
               color: Colors.blue[800],
             ),
           ),

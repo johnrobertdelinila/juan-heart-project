@@ -250,7 +250,7 @@ class NextStepsScreen extends StatelessWidget {
                 lang == 'fil' ? 'Resulta ng Assessment' : 'Assessment Result',
                 style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: const JHColors.midnightBlue,
+                  color: JHColors.midnightBlue,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -285,7 +285,7 @@ class NextStepsScreen extends StatelessWidget {
                   Text(
                     recommendation.riskCategory,
                     style: JHTextStyles.h3.copyWith(
-                      color: const JHColors.midnightBlue,
+                      color: JHColors.midnightBlue,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -348,7 +348,7 @@ class NextStepsScreen extends StatelessWidget {
                       Text(
                         recommendation.timeframe,
                         style: JHTextStyles.bodyBase.copyWith(
-                          color: const JHColors.midnightBlue,
+                          color: JHColors.midnightBlue,
                         ),
                       ),
                     ],

@@ -4,6 +4,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/models/referral_data.dart';
 import 'package:juan_heart/services/facility_service.dart';
+import 'package:juan_heart/presentation/widgets/standard_card.dart';
+import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
+import 'package:juan_heart/services/performance_service.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 
 class FacilitySelectionScreen extends StatefulWidget {
   const FacilitySelectionScreen({Key? key}) : super(key: key);
@@ -17,6 +22,7 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
   bool _isLoading = true;
   bool _locationError = false;
   String _errorMessage = '';
+  Trace? _screenTrace;
 
   Position? _userLocation;
   List<HealthcareFacility> _facilities = [];
@@ -28,7 +34,19 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
   @override
   void initState() {
     super.initState();
+    _startScreenTrace();
     _loadFacilities();
+  }
+
+  /// Start screen load performance trace
+  Future<void> _startScreenTrace() async {
+    _screenTrace = await PerformanceService.instance
+        .startScreenTrace('facility_selection_screen');
+
+    // Stop trace after first frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PerformanceService.instance.stopScreenTrace(_screenTrace);
+    });
   }
 
   @override
@@ -117,17 +135,15 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
       appBar: AppBar(
         backgroundColor: ColorConstant.whiteBackground,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: ColorConstant.bluedark),
           onPressed: () => Get.back(),
         ),
         title: Text(
-          isFilipino ? 'Pumili ng Pasilidad' : 'Select Facility',
-          style: TextStyle(
+          isFilipino ? 'Pasilidad' : 'Facility',
+          style: JHTextStyles.h4.copyWith(
             color: ColorConstant.bluedark,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Poppins',
           ),
         ),
       ),
@@ -177,8 +193,7 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
                 isFilipino
                     ? '${_filteredFacilities.length} pasilidad na nakita'
                     : '${_filteredFacilities.length} facilities found',
-                style: TextStyle(
-                  fontSize: 14,
+                style: JHTextStyles.bodySmall.copyWith(
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
@@ -224,151 +239,137 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
   }
 
   Widget _buildFacilityCard(HealthcareFacility facility, bool isFilipino) {
-    return Card(
+    return StandardCard(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _selectFacility(facility),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
+      padding: EdgeInsets.zero,
+      onTap: () => _selectFacility(facility),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ColorConstant.lightRed.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    facility.typeIcon,
+                    color: ColorConstant.lightRed,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        facility.name,
+                        style: JHTextStyles.h5.copyWith(
+                          color: ColorConstant.bluedark,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        facility.typeName,
+                        style: JHTextStyles.caption.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (facility.is24Hours)
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: ColorConstant.lightRed.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.green[50],
+                      border: Border.all(color: Colors.green[300]!),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Icon(
-                      facility.typeIcon,
-                      color: ColorConstant.lightRed,
-                      size: 24,
+                    child: Text(
+                      '24/7',
+                      style: JHTextStyles.label.copyWith(
+                        color: Colors.green[700],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          facility.name,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'Poppins',
-                            color: ColorConstant.bluedark,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          facility.typeName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    facility.address,
+                    style: JHTextStyles.caption.copyWith(
+                      color: Colors.grey[700],
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (facility.is24Hours)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        border: Border.all(color: Colors.green[300]!),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '24/7',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green[700],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                ),
+              ],
+            ),
+            if (facility.distanceKm != null) ...[
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                  Icon(Icons.directions_car,
+                      size: 16, color: ColorConstant.lightRed),
                   const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      facility.address,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              if (facility.distanceKm != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.directions_car,
-                        size: 16, color: ColorConstant.lightRed),
-                    const SizedBox(width: 4),
-                    Text(
-                      facility.distanceText,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: ColorConstant.lightRed,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (facility.contactNumber != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.phone, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      facility.contactNumber!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => _selectFacility(facility),
-                    child: Text(
-                      isFilipino ? 'Piliin' : 'Select',
-                      style: TextStyle(
-                        color: ColorConstant.lightRed,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Text(
+                    facility.distanceText,
+                    style: JHTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: ColorConstant.lightRed,
                     ),
                   ),
                 ],
               ),
             ],
-          ),
+            if (facility.contactNumber != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.phone, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Text(
+                    facility.contactNumber!,
+                    style: JHTextStyles.caption.copyWith(
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => _selectFacility(facility),
+                  child: Text(
+                    isFilipino ? 'Piliin' : 'Select',
+                    style: JHTextStyles.button.copyWith(
+                      color: ColorConstant.lightRed,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -390,24 +391,14 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
             Text(
               _errorMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
+              style: JHTextStyles.h5.copyWith(
                 color: Colors.grey[700],
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
+            StandardButton.primary(
+              text: isFilipino ? 'Subukan Ulit' : 'Retry',
               onPressed: _loadFacilities,
-              icon: const Icon(Icons.refresh),
-              label: Text(isFilipino ? 'Subukan Ulit' : 'Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ColorConstant.lightRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
             ),
           ],
         ),
@@ -429,13 +420,9 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              isFilipino
-                  ? 'Walang nakitang pasilidad'
-                  : 'No facilities found',
+              isFilipino ? 'Walang nakitang pasilidad' : 'No facilities found',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              style: JHTextStyles.h5.copyWith(
                 color: Colors.grey[700],
               ),
             ),
@@ -445,8 +432,7 @@ class _FacilitySelectionScreenState extends State<FacilitySelectionScreen> {
                   ? 'Subukan ang ibang search term'
                   : 'Try a different search term',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
+              style: JHTextStyles.bodySmall.copyWith(
                 color: Colors.grey[600],
               ),
             ),

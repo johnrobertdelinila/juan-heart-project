@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:juan_heart/core/app_exports.dart';
 import 'package:juan_heart/presentation/widgets/export_widgets.dart';
+import 'package:juan_heart/presentation/widgets/cached_image.dart';
 import 'package:juan_heart/routes/app_routes.dart';
-
-import '../../../themes/app_styles.dart';
+import 'package:juan_heart/themes/jh_text_styles.dart';
 
 class UserDetailsScreen extends StatefulWidget {
   const UserDetailsScreen({super.key});
@@ -79,11 +79,19 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
             Container(
               margin: const EdgeInsets.only(top: 50),
               height: 200,
-              child: Image.asset(ImageConstant.imgLogoLight),
+              child: CachedImage.asset(
+                ImageConstant.imgLogoLight,
+                height: 200,
+                fit: BoxFit.contain,
+                cacheHeight: 400,
+              ),
             ),
             Text(
               "Which one are you?",
-              style: AppStyle.txtPoppinsSemiBold22Light,
+              style: JHTextStyles.h3.copyWith(
+                color: ColorConstant.bluedark,
+                fontSize: 22,
+              ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -146,7 +154,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                             height.toString(),
                             style: const TextStyle(
                               fontSize: 20.0,
-                              fontFamily: "Poppins",
+                              
                               color: Colors.black,
                             ),
                           ),
@@ -174,7 +182,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                             weight.toString(),
                             style: const TextStyle(
                               fontSize: 20.0,
-                              fontFamily: "Poppins",
+                              
                               color: Colors.black,
                             ),
                           ),
@@ -238,13 +246,16 @@ class SelectGenderOption extends StatelessWidget {
                 colorFilter: ColorFilter.mode(
                   genderSelected == gender
                       ? Colors.transparent
-                      : Colors.white.withOpacity(0.5),
+                      : Colors.white.withValues(alpha: 0.5),
                   BlendMode.srcATop,
                 ),
-                child: Image.asset(
+                child: CachedImage.asset(
                   imagePath,
                   width: 110,
                   height: 100,
+                  fit: BoxFit.contain,
+                  cacheWidth: 220,
+                  cacheHeight: 200,
                 ),
               ),
             ),
@@ -252,8 +263,12 @@ class SelectGenderOption extends StatelessWidget {
           Text(
             gender,
             style: genderSelected == gender
-                ? AppStyle.txtPoppinsSemiBold18Dark
-                : AppStyle.txtPoppinsSemiBold18LightGray,
+                ? JHTextStyles.h5.copyWith(
+                    color: ColorConstant.bluedark,
+                  )
+                : JHTextStyles.h5.copyWith(
+                    color: ColorConstant.lightGray,
+                  ),
           )
         ],
       ),
@@ -284,7 +299,10 @@ class TellUsAboutUserSelf extends StatelessWidget {
             padding: const EdgeInsets.only(top: 50, bottom: 25),
             child: Text(
               "Tell us about yourself",
-              style: AppStyle.txtPoppinsSemiBold22Light,
+              style: JHTextStyles.h3.copyWith(
+                color: ColorConstant.bluedark,
+                fontSize: 22,
+              ),
             ),
           ),
           _dataAsFollow("Birthday", birthday, datePickerOnTap),
@@ -308,13 +326,17 @@ class TellUsAboutUserSelf extends StatelessWidget {
         children: [
           Text(
             title,
-            style: AppStyle.txtPoppinsSemiBold18Dark,
+            style: JHTextStyles.h5.copyWith(
+              color: ColorConstant.bluedark,
+            ),
           ),
           GestureDetector(
             onTap: onTap,
             child: Text(
               dataFormat,
-              style: AppStyle.txtPoppinsSemiBold18LightBlue,
+              style: JHTextStyles.h5.copyWith(
+                color: ColorConstant.lightBlue.withValues(alpha: 0.7),
+              ),
             ),
           )
         ],

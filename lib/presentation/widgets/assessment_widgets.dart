@@ -23,7 +23,7 @@ class AnimatedHeartLogo extends StatefulWidget {
   const AnimatedHeartLogo({
     Key? key,
     this.size = 120,
-    this.color = const JHColors.danger,
+    this.color = JHColors.danger,
   }) : super(key: key);
 
   @override
@@ -109,7 +109,7 @@ class AssessmentWelcomeCard extends StatelessWidget {
                 : 'Hi${userName.isNotEmpty ? " $userName" : ""}! Let\'s check your heart health.',
             textAlign: TextAlign.center,
             style: JHTextStyles.h2.copyWith(
-              color: const JHColors.slate900,
+              color: JHColors.slate900,
             ),
           ),
 
@@ -135,10 +135,10 @@ class AssessmentWelcomeCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onStart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const JHColors.infoDark,
+                backgroundColor: JHColors.infoDark,
                 foregroundColor: Colors.white,
                 elevation: 3,
-                shadowColor: const JHColors.infoDark.withValues(alpha: 0.4),
+                shadowColor: JHColors.infoDark.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -269,7 +269,7 @@ class AssessmentProgressIndicator extends StatelessWidget {
                   encouragement,
                   style: JHTextStyles.caption.copyWith(
                     fontSize: 13,
-                    color: const JHColors.success,
+                    color: JHColors.success,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -339,7 +339,7 @@ class QuestionCard extends StatelessWidget {
             question,
             style: JHTextStyles.h3.copyWith(
               fontSize: 22,
-              color: const JHColors.slate900,
+              color: JHColors.slate900,
             ),
           ),
           if (hint != null) ...[
@@ -384,7 +384,7 @@ class ToggleChipGroup extends StatelessWidget {
       runSpacing: 12,
       children: List.generate(options.length, (index) {
         final isSelected = selectedValue == optionsValues[index];
-        final color = activeColor ?? const JHColors.infoDark;
+        final color = activeColor ?? JHColors.infoDark;
 
         return InkWell(
           onTap: () => onSelected(optionsValues[index]),
@@ -467,7 +467,7 @@ class SegmentedControl extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
                   color:
-                      isSelected ? const JHColors.infoDark : Colors.transparent,
+                      isSelected ? JHColors.infoDark : Colors.transparent,
                   borderRadius: BorderRadius.horizontal(
                     left: isFirst ? const Radius.circular(12) : Radius.zero,
                     right: isLast ? const Radius.circular(12) : Radius.zero,
@@ -541,7 +541,7 @@ class AssessmentTextField extends StatelessWidget {
           style: JHTextStyles.bodySmall.copyWith(
             fontSize: 15,
             fontWeight: FontWeight.w600,
-            color: const JHColors.slate900,
+            color: JHColors.slate900,
           ),
         ),
         const SizedBox(height: 12),
@@ -551,7 +551,7 @@ class AssessmentTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: errorText != null
-                  ? const JHColors.danger
+                  ? JHColors.danger
                   : ColorConstant.cardBorder,
               width: 1.5,
             ),
@@ -564,7 +564,7 @@ class AssessmentTextField extends StatelessWidget {
                   keyboardType: keyboardType,
                   style: JHTextStyles.h5.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: const JHColors.slate900,
+                    color: JHColors.slate900,
                   ),
                   decoration: InputDecoration(
                     hintText: hint,
@@ -608,7 +608,7 @@ class AssessmentTextField extends StatelessWidget {
                 errorText,
                 style: JHTextStyles.caption.copyWith(
                   fontSize: 13,
-                  color: const JHColors.danger,
+                  color: JHColors.danger,
                 ),
               ),
             ],
@@ -639,13 +639,13 @@ class MilestoneFeedback extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const JHColors.success.withValues(alpha: 0.15),
-            const JHColors.success.withValues(alpha: 0.05),
+            JHColors.success.withValues(alpha: 0.15),
+            JHColors.success.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const JHColors.success.withValues(alpha: 0.3),
+          color: JHColors.success.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -654,12 +654,12 @@ class MilestoneFeedback extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const JHColors.success.withValues(alpha: 0.2),
+              color: JHColors.success.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: const JHColors.success,
+              color: JHColors.success,
               size: 28,
             ),
           ),
@@ -669,7 +669,7 @@ class MilestoneFeedback extends StatelessWidget {
               message,
               style: JHTextStyles.bodyBase.copyWith(
                 fontWeight: FontWeight.w600,
-                color: const JHColors.slate900,
+                color: JHColors.slate900,
               ),
             ),
           ),
@@ -724,12 +724,12 @@ class SummaryReviewCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const JHColors.infoDark.withValues(alpha: 0.12),
+                  color: JHColors.infoDark.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   icon,
-                  color: const JHColors.infoDark,
+                  color: JHColors.infoDark,
                   size: 20,
                 ),
               ),
@@ -740,7 +740,7 @@ class SummaryReviewCard extends StatelessWidget {
                   style: JHTextStyles.h5.copyWith(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: const JHColors.slate900,
+                    color: JHColors.slate900,
                   ),
                 ),
               ),
@@ -762,7 +762,7 @@ class SummaryReviewCard extends StatelessWidget {
                         language == 'fil' ? 'I-edit' : 'Edit',
                         style: JHTextStyles.bodySmall.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: const JHColors.infoDark,
+                          color: JHColors.infoDark,
                         ),
                       ),
                     ],
@@ -792,7 +792,7 @@ class SummaryReviewCard extends StatelessWidget {
                         item.value,
                         style: JHTextStyles.bodySmall.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: const JHColors.slate900,
+                          color: JHColors.slate900,
                         ),
                       ),
                     ),
@@ -832,7 +832,7 @@ class AnalyzingAnimation extends StatelessWidget {
                 : 'Analyzing your results...',
             style: JHTextStyles.h3.copyWith(
               fontSize: 22,
-              color: const JHColors.slate900,
+              color: JHColors.slate900,
             ),
           ),
 
@@ -927,12 +927,12 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: widget.isSelected
-            ? const JHColors.infoDark.withValues(alpha: 0.08)
+            ? JHColors.infoDark.withValues(alpha: 0.08)
             : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: widget.isSelected
-              ? const JHColors.infoDark
+              ? JHColors.infoDark
               : ColorConstant.cardBorder,
           width: widget.isSelected ? 2 : 1.5,
         ),
@@ -957,14 +957,14 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: widget.isSelected
-                          ? const JHColors.infoDark.withValues(alpha: 0.15)
+                          ? JHColors.infoDark.withValues(alpha: 0.15)
                           : ColorConstant.softWhite,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       widget.icon,
                       color: widget.isSelected
-                          ? const JHColors.infoDark
+                          ? JHColors.infoDark
                           : ColorConstant.gentleGray,
                       size: 24,
                     ),
@@ -979,8 +979,8 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
                           style: JHTextStyles.bodyBase.copyWith(
                             fontWeight: FontWeight.bold,
                             color: widget.isSelected
-                                ? const JHColors.infoDark
-                                : const JHColors.slate900,
+                                ? JHColors.infoDark
+                                : JHColors.slate900,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -999,7 +999,7 @@ class _ExpandableSymptomCardState extends State<ExpandableSymptomCard>
                     child: Icon(
                       Icons.keyboard_arrow_down,
                       color: widget.isSelected
-                          ? const JHColors.infoDark
+                          ? JHColors.infoDark
                           : ColorConstant.gentleGray,
                     ),
                   ),
@@ -1062,9 +1062,9 @@ class VitalRangeIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normal = normalColor ?? const JHColors.success;
-    final warning = warningColor ?? const JHColors.warning;
-    final danger = dangerColor ?? const JHColors.danger;
+    final normal = normalColor ?? JHColors.success;
+    final warning = warningColor ?? JHColors.warning;
+    final danger = dangerColor ?? JHColors.danger;
 
     Color getColor() {
       if (value == null) return ColorConstant.gentleGray;
@@ -1108,7 +1108,7 @@ class VitalRangeIndicator extends StatelessWidget {
                 label,
                 style: JHTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: const JHColors.slate900,
+                  color: JHColors.slate900,
                 ),
               ),
               Container(
@@ -1207,9 +1207,9 @@ class LargeActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bgColor = backgroundColor ??
-        (isSecondary ? ColorConstant.softWhite : const JHColors.infoDark);
+        (isSecondary ? ColorConstant.softWhite : JHColors.infoDark);
     final fgColor = foregroundColor ??
-        (isSecondary ? const JHColors.slate900 : Colors.white);
+        (isSecondary ? JHColors.slate900 : Colors.white);
 
     return SizedBox(
       width: double.infinity,

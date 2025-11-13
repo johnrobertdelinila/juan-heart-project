@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:juan_heart/models/assessment_history_model.dart';
-import 'package:juan_heart/services/assessment_sync_service.dart';
+import 'package:juan_heart/services/sync_queue_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AnalyticsService {
   static const String _storageKey = 'assessment_history';
 
-  /// Save a new assessment to history and sync to backend
+  /// Save a new assessment to history and queue for backend sync
   static Future<void> saveAssessment(AssessmentRecord record) async {
     final prefs = await SharedPreferences.getInstance();
     final history = await getAssessmentHistory();
@@ -24,19 +25,33 @@ class AnalyticsService {
     final jsonList = history.map((r) => r.toJson()).toList();
     await prefs.setString(_storageKey, jsonEncode(jsonList));
 
-    // Sync to backend database (non-blocking)
+    // Queue assessment for backend sync
     try {
-      debugPrint('🔄 Attempting to sync assessment to backend database...');
-      final syncResult = await AssessmentSyncService.syncAssessmentToBackend(record);
+      final syncQueue = SyncQueueService();
+      final connectivityResult = await Connectivity().checkConnectivity();
+      final isOnline = connectivityResult != ConnectivityResult.none;
 
-      if (syncResult['success'] == true) {
-        debugPrint('✅ Assessment synced to database successfully!');
-        debugPrint('📊 Database ID: ${syncResult['data']?['id']}');
+      debugPrint('🔄 Queuing assessment for backend sync...');
+      debugPrint('📡 Network Status: ${isOnline ? 'Online' : 'Offline'}');
+
+      // Add to sync queue
+      await syncQueue.addOperation(
+        SyncOperation(
+          id: 'assessment_sync_${record.id}_${DateTime.now().millisecondsSinceEpoch}',
+          type: SyncOperationType.syncAssessment,
+          data: record.toJson(),
+        ),
+      );
+
+      if (isOnline) {
+        debugPrint('✅ Assessment queued for immediate sync (online)');
+        // Trigger queue processing (sync will happen in background)
+        syncQueue.processQueue();
       } else {
-        debugPrint('⚠️ Assessment saved locally but sync failed: ${syncResult['message']}');
+        debugPrint('📴 Assessment queued for sync when online');
       }
     } catch (e) {
-      debugPrint('⚠️ Assessment saved locally but sync error: $e');
+      debugPrint('⚠️ Assessment saved locally but queue error: $e');
       // Don't throw error - assessment is still saved locally
     }
   }
@@ -50,6 +65,16 @@ class AnalyticsService {
     
     final List<dynamic> jsonList = jsonDecode(jsonString);
     return jsonList.map((json) => AssessmentRecord.fromJson(json)).toList();
+  }
+
+  /// Find assessment record by ID.
+  static Future<AssessmentRecord?> getAssessmentById(String assessmentId) async {
+    final history = await getAssessmentHistory();
+    try {
+      return history.firstWhere((record) => record.id == assessmentId);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Get risk trend statistics
@@ -503,4 +528,3 @@ class AnalyticsService {
     await prefs.setString(_storageKey, jsonEncode(jsonList));
   }
 }
-

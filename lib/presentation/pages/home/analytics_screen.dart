@@ -6,14 +6,18 @@ import 'package:juan_heart/models/assessment_history_model.dart';
 import 'package:juan_heart/services/analytics_service.dart';
 import 'package:juan_heart/services/analytics_pdf_service.dart';
 import 'package:juan_heart/services/analytics_csv_service.dart';
+import 'package:juan_heart/services/privacy_service.dart';
 import 'package:juan_heart/presentation/widgets/date_range_selector.dart';
 import 'package:juan_heart/presentation/widgets/standard_card.dart';
 import 'package:juan_heart/presentation/widgets/standard_button.dart';
+import 'package:juan_heart/presentation/pages/analytics/full_history_screen.dart';
 import 'package:juan_heart/themes/jh_text_styles.dart';
 import 'package:juan_heart/themes/jh_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:juan_heart/services/performance_service.dart';
 import 'package:firebase_performance/firebase_performance.dart';
+import 'package:juan_heart/presentation/widgets/sync_status_badge.dart';
+import 'package:juan_heart/services/sync_queue_service.dart';
 
 /// Heart Insights Center - Redesigned Analytics Screen
 /// 
@@ -138,7 +142,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         centerTitle: true,
         title: Text(
           "Insights",
-          style: JHTextStyles.h2.copyWith(color: ColorConstant.bluedark),
+          style: JHTextStyles.h4.copyWith(color: ColorConstant.bluedark),
         ),
         actions: [
           IconButton(
@@ -188,7 +192,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         // 1. Quick Stats Overview
                         _buildQuickStatsOverview(),
                         const SizedBox(height: 24),
-                        
+
+                        // 1.5. Sync Status Summary
+                        _buildSyncStatusSection(),
+                        const SizedBox(height: 24),
+
         // 2. Assessment Streak & Reminders
         _buildAssessmentStreak(),
         const SizedBox(height: 24),
@@ -292,9 +300,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final isWorsening = trend == 'worsening';
 
     final accentColor = isImproving
-      ? const JHColors.success
+      ? JHColors.success
       : isWorsening
-      ? const JHColors.danger
+      ? JHColors.danger
       : ColorConstant.trustBlue;
 
     return AccentCard(
@@ -325,9 +333,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 : Icons.trending_flat,
               size: 32,
               color: isImproving 
-                ? const JHColors.success
+                ? JHColors.success
                 : isWorsening
-                ? const JHColors.danger
+                ? JHColors.danger
                 : ColorConstant.trustBlue,
             ),
           ),
@@ -423,6 +431,46 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
+  // SECTION 1.5: Sync Status
+  Widget _buildSyncStatusSection() {
+    final syncQueue = SyncQueueService();
+    final queueStats = syncQueue.getQueueStatus();
+
+    final totalAssessments = _history.length;
+    final pendingCount = queueStats['pending'] as int;
+    final failedCount = queueStats['failed'] as int;
+    final syncedCount = totalAssessments - pendingCount - failedCount;
+
+    // Get last sync time from most recent synced assessment
+    DateTime? lastSyncTime;
+    // For now, we'll use the current time as a placeholder
+    // In a real implementation, this would be fetched from synced records
+    if (syncedCount > 0) {
+      lastSyncTime = DateTime.now();
+    }
+
+    // Don't show section if everything is synced and no failures
+    if (pendingCount == 0 && failedCount == 0) {
+      return const SizedBox.shrink();
+    }
+
+    return SyncStatusSummary(
+      totalAssessments: totalAssessments,
+      syncedCount: syncedCount,
+      pendingCount: pendingCount,
+      failedCount: failedCount,
+      lastSyncTime: lastSyncTime,
+      onRetryFailed: failedCount > 0
+          ? () async {
+              await syncQueue.retryFailedOperations();
+              setState(() {
+                _loadAnalyticsData();
+              });
+            }
+          : null,
+    );
+  }
+
   // SECTION 2: Assessment Streak & Reminders
   Widget _buildAssessmentStreak() {
     final streak = _calculateAssessmentStreak();
@@ -451,6 +499,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               border: Border.all(color: ColorConstant.trustBlue.withValues(alpha: 0.3)),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -468,9 +517,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        Get.locale?.languageCode == 'fil' 
+                        Get.locale?.languageCode == 'fil'
                           ? '$streak buwan na sunod-sunod!'
                           : '$streak months in a row!',
                         style: JHTextStyles.h5.copyWith(color: ColorConstant.bluedark),
@@ -495,11 +545,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const JHColors.warningLight,
+                color: JHColors.warningLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const JHColors.warning),
+                border: Border.all(color: JHColors.warning),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Icon(
                     Icons.schedule,
@@ -510,12 +561,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           Get.locale?.languageCode == 'fil'
                             ? 'Oras na para sa bagong pagsusuri!'
                             : 'Time for a new assessment!',
                           style: JHTextStyles.bodySmall.copyWith(color: ColorConstant.bluedark, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -523,16 +577,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             ? 'Huling pagsusuri: $daysSinceLastAssessment araw na ang nakalipas'
                             : 'Last assessment: $daysSinceLastAssessment days ago',
                           style: JHTextStyles.label.copyWith(color: ColorConstant.gentleGray),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  StandardButton.compact(
-                    text: Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
-                    onPressed: () {
-                      // Navigate to assessment
-                      Get.back(); // Go to home where FAB is available
-                    },
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 120,
+                    child: StandardButton.compact(
+                      text: Get.locale?.languageCode == 'fil' ? 'Magsimula' : 'Start',
+                      onPressed: () {
+                        // Navigate to assessment
+                        Get.back(); // Go to home where FAB is available
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -615,22 +675,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           if (_insights.length > 3) ...[
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () {
-                // TODO: Show all insights in a modal
-                Get.snackbar(
-                  Get.locale?.languageCode == 'fil' ? 'Paparating na Tampok' : 'Coming Soon',
-                  Get.locale?.languageCode == 'fil' 
-                    ? 'Makikita ninyo ang lahat ng insights sa susunod na update!'
-                    : 'View all insights in the next update!',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: ColorConstant.trustBlue,
-                  colorText: Colors.white,
-                );
-              },
+              onPressed: _showAllInsightsModal,
               child: Text(
-                Get.locale?.languageCode == 'fil' 
-                  ? 'Tingnan ang lahat ng insights'
-                  : 'View all insights',
+                Get.locale?.languageCode == 'fil'
+                  ? 'Tingnan ang lahat ng insights (${_insights.length})'
+                  : 'View all insights (${_insights.length})',
                 style: JHTextStyles.caption.copyWith(color: ColorConstant.trustBlue),
               ),
             ),
@@ -805,11 +854,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       spacing: 12,
       runSpacing: 8,
       children: [
-        _buildLegendItem('Low', const JHColors.success),
-        _buildLegendItem('Mild', const JHColors.warning),
-        _buildLegendItem('Moderate', const JHColors.warning),
-        _buildLegendItem('High', const JHColors.danger),
-        _buildLegendItem('Critical', const JHColors.dangerDark),
+        _buildLegendItem('Low', JHColors.success),
+        _buildLegendItem('Mild', JHColors.warning),
+        _buildLegendItem('Moderate', JHColors.warning),
+        _buildLegendItem('High', JHColors.danger),
+        _buildLegendItem('Critical', JHColors.dangerDark),
       ],
     );
   }
@@ -912,7 +961,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   // Highlight normal range
                   if (value == 120 || value == 90) {
                     return FlLine(
-                      color: const JHColors.success.withValues(alpha: 0.3),
+                      color: JHColors.success.withValues(alpha: 0.3),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                     );
@@ -972,7 +1021,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   isCurved: true,
-                  color: const JHColors.danger,
+                  color: JHColors.danger,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -980,7 +1029,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getDotPainter: (spot, percent, barData, index) {
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: const JHColors.danger,
+                        color: JHColors.danger,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -998,7 +1047,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   isCurved: true,
-                  color: const JHColors.info,
+                  color: JHColors.info,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1006,7 +1055,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getDotPainter: (spot, percent, barData, index) {
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: const JHColors.info,
+                        color: JHColors.info,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1036,16 +1085,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildChartLegendItem('Systolic', const JHColors.danger),
+            _buildChartLegendItem('Systolic', JHColors.danger),
             const SizedBox(width: 16),
-            _buildChartLegendItem('Diastolic', const JHColors.info),
+            _buildChartLegendItem('Diastolic', JHColors.info),
           ],
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const JHColors.successLight,
+            color: JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -1087,8 +1136,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: latest >= 60 && latest <= 100
-                    ? const JHColors.success
-                    : const JHColors.warning,
+                    ? JHColors.success
+                    : JHColors.warning,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -1117,7 +1166,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   // Highlight normal range (60-100)
                   if (value == 60 || value == 100) {
                     return FlLine(
-                      color: const JHColors.success.withValues(alpha: 0.3),
+                      color: JHColors.success.withValues(alpha: 0.3),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                     );
@@ -1171,7 +1220,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: const JHColors.heartRed,
+                  color: JHColors.heartRed,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1180,7 +1229,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isNormal = trends[index].isNormal;
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: isNormal ? const JHColors.success : const JHColors.warning,
+                        color: isNormal ? JHColors.success : JHColors.warning,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1190,8 +1239,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        const JHColors.heartRed.withValues(alpha: 0.2),
-                        const JHColors.heartRed.withValues(alpha: 0.05),
+                        JHColors.heartRed.withValues(alpha: 0.2),
+                        JHColors.heartRed.withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1209,7 +1258,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               child: _buildVitalStatCard(
                 label: Get.locale?.languageCode == 'fil' ? 'Average' : 'Average',
                 value: '${avg.toInt()} bpm',
-                color: const JHColors.info,
+                color: JHColors.info,
               ),
             ),
             const SizedBox(width: 12),
@@ -1218,8 +1267,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 label: Get.locale?.languageCode == 'fil' ? 'Kasalukuyan' : 'Current',
                 value: '${latest.toInt()} bpm',
                 color: latest >= 60 && latest <= 100
-                  ? const JHColors.success
-                  : const JHColors.warning,
+                  ? JHColors.success
+                  : JHColors.warning,
               ),
             ),
           ],
@@ -1247,8 +1296,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: latest >= 95
-                    ? const JHColors.success
-                    : const JHColors.danger,
+                    ? JHColors.success
+                    : JHColors.danger,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -1317,7 +1366,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: const JHColors.info,
+                  color: JHColors.info,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1326,7 +1375,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isNormal = trends[index].isNormal;
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: isNormal ? const JHColors.success : const JHColors.danger,
+                        color: isNormal ? JHColors.success : JHColors.danger,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1336,8 +1385,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        const JHColors.info.withValues(alpha: 0.2),
-                        const JHColors.info.withValues(alpha: 0.05),
+                        JHColors.info.withValues(alpha: 0.2),
+                        JHColors.info.withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1352,7 +1401,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const JHColors.successLight,
+            color: JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -1393,8 +1442,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: latest >= 36.1 && latest <= 37.2
-                    ? const JHColors.success
-                    : const JHColors.warning,
+                    ? JHColors.success
+                    : JHColors.warning,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -1463,7 +1512,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: const JHColors.warning,
+                  color: JHColors.warning,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1472,7 +1521,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       final isNormal = trends[index].isNormal;
                       return FlDotCirclePainter(
                         radius: 4,
-                        color: isNormal ? const JHColors.success : const JHColors.warning,
+                        color: isNormal ? JHColors.success : JHColors.warning,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1482,8 +1531,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        const JHColors.warning.withValues(alpha: 0.2),
-                        const JHColors.warning.withValues(alpha: 0.05),
+                        JHColors.warning.withValues(alpha: 0.2),
+                        JHColors.warning.withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1498,7 +1547,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const JHColors.successLight,
+            color: JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -1547,7 +1596,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     Icon(
                       change < 0 ? Icons.trending_down : Icons.trending_up,
                       size: 16,
-                      color: change < 0 ? const JHColors.success : const JHColors.warning,
+                      color: change < 0 ? JHColors.success : JHColors.warning,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -1628,7 +1677,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     (index) => FlSpot(index.toDouble(), trends[index].value),
                   ),
                   isCurved: true,
-                  color: change < 0 ? const JHColors.success : ColorConstant.trustBlue,
+                  color: change < 0 ? JHColors.success : ColorConstant.trustBlue,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: FlDotData(
@@ -1636,7 +1685,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     getDotPainter: (spot, percent, barData, index) {
                       return FlDotCirclePainter(
                         radius: 5,
-                        color: change < 0 ? const JHColors.success : ColorConstant.trustBlue,
+                        color: change < 0 ? JHColors.success : ColorConstant.trustBlue,
                         strokeWidth: 2,
                         strokeColor: Colors.white,
                       );
@@ -1646,8 +1695,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     show: true,
                     gradient: LinearGradient(
                       colors: [
-                        (change < 0 ? const JHColors.success : ColorConstant.trustBlue).withValues(alpha: 0.2),
-                        (change < 0 ? const JHColors.success : ColorConstant.trustBlue).withValues(alpha: 0.05),
+                        (change < 0 ? JHColors.success : ColorConstant.trustBlue).withValues(alpha: 0.2),
+                        (change < 0 ? JHColors.success : ColorConstant.trustBlue).withValues(alpha: 0.05),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1662,7 +1711,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: change < 0 ? const JHColors.successLight : const JHColors.infoLight,
+            color: change < 0 ? JHColors.successLight : JHColors.infoLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -1670,7 +1719,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Icon(
                 change < 0 ? Icons.check_circle_outline : Icons.info_outline,
                 size: 16,
-                color: change < 0 ? const JHColors.success : ColorConstant.trustBlue,
+                color: change < 0 ? JHColors.success : ColorConstant.trustBlue,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1707,9 +1756,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     Color getBMIColor(double bmi) {
-      if (bmi >= 18.5 && bmi < 25) return const JHColors.success;
-      if (bmi < 18.5 || (bmi >= 25 && bmi < 30)) return const JHColors.warning;
-      return const JHColors.danger;
+      if (bmi >= 18.5 && bmi < 25) return JHColors.success;
+      if (bmi < 18.5 || (bmi >= 25 && bmi < 30)) return JHColors.warning;
+      return JHColors.danger;
     }
 
     return Column(
@@ -1767,7 +1816,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   // Highlight normal BMI range (18.5-24.9)
                   if (value == 18.5 || value == 24.9) {
                     return FlLine(
-                      color: const JHColors.success.withValues(alpha: 0.3),
+                      color: JHColors.success.withValues(alpha: 0.3),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                     );
@@ -1854,7 +1903,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const JHColors.successLight,
+            color: JHColors.successLight,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -1946,10 +1995,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isNormal ? const JHColors.successLight : const JHColors.dangerLight,
+        color: isNormal ? JHColors.successLight : JHColors.dangerLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isNormal ? const JHColors.success : const JHColors.danger,
+          color: isNormal ? JHColors.success : JHColors.danger,
           width: 1,
         ),
       ),
@@ -1968,7 +2017,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isNormal ? const JHColors.success : const JHColors.danger,
+                  color: isNormal ? JHColors.success : JHColors.danger,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -2349,18 +2398,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           if (_filteredHistory.length > 10) ...[
             const SizedBox(height: 16),
             TextButton.icon(
-              onPressed: () {
-                // TODO: Navigate to full history view
-                Get.snackbar(
-                  Get.locale?.languageCode == 'fil' ? 'Paparating na Tampok' : 'Coming Soon',
-                  Get.locale?.languageCode == 'fil'
-                      ? 'Ang buong kasaysayan ay makikita sa susunod na update!'
-                      : 'Full history view coming in next update!',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: ColorConstant.trustBlue,
-                  colorText: Colors.white,
-                );
-              },
+              onPressed: _navigateToFullHistory,
               icon: Icon(Icons.history, color: ColorConstant.trustBlue),
               label: Text(
                 Get.locale?.languageCode == 'fil'
@@ -2368,7 +2406,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     : 'View all (${_filteredHistory.length})',
                 style: TextStyle(
                   color: ColorConstant.trustBlue,
-                  
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2519,14 +2556,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         Expanded(
                           child: _buildScorePill(
                             'L: ${record.likelihoodScore}',
-                            const JHColors.info,
+                            JHColors.info,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildScorePill(
                             'I: ${record.impactScore}',
-                            const JHColors.heartRed,
+                            JHColors.heartRed,
                           ),
                         ),
                       ],
@@ -2543,18 +2580,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           _buildVitalChip(
                             Icons.favorite,
                             '${record.heartRate} bpm',
-                            const JHColors.heartRed,
+                            JHColors.heartRed,
                           ),
                           _buildVitalChip(
                             Icons.monitor_heart,
                             '${record.systolicBP}/${record.diastolicBP}',
-                            const JHColors.danger,
+                            JHColors.danger,
                           ),
                           if (record.oxygenSaturation != null)
                             _buildVitalChip(
                               Icons.air,
                               '${record.oxygenSaturation}%',
-                              const JHColors.info,
+                              JHColors.info,
                             ),
                         ],
                       ),
@@ -2941,7 +2978,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 12),
             ...improved.map((factor) => _buildRiskFactorItem(
               factor,
-              const JHColors.success,
+              JHColors.success,
               Icons.check_circle,
             )),
           ],
@@ -3015,7 +3052,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const JHColors.success.withValues(alpha: 0.3)),
+              border: Border.all(color: JHColors.success.withValues(alpha: 0.3)),
             ),
             child: Column(
               children: [
@@ -3046,36 +3083,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     Expanded(
                       child: StandardButton.outline(
                         text: Get.locale?.languageCode == 'fil' ? 'Matuto Pa' : 'Learn More',
-                        onPressed: () {
-                          // TODO: Implement data contribution toggle
-                          Get.snackbar(
-                            Get.locale?.languageCode == 'fil' ? 'Paparating na Tampok' : 'Coming Soon',
-                            Get.locale?.languageCode == 'fil'
-                              ? 'Ang tampok na ito ay paparating na!'
-                              : 'This feature is coming soon!',
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: const JHColors.success,
-                            colorText: Colors.white,
-                          );
-                        },
+                        onPressed: _showDataContributionInfo,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: StandardButton.primary(
                         text: Get.locale?.languageCode == 'fil' ? 'Pumayag' : 'Contribute',
-                        onPressed: () {
-                          // TODO: Implement data contribution toggle
-                          Get.snackbar(
-                            Get.locale?.languageCode == 'fil' ? 'Paparating na Tampok' : 'Coming Soon',
-                            Get.locale?.languageCode == 'fil'
-                              ? 'Ang tampok na ito ay paparating na!'
-                              : 'This feature is coming soon!',
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: const JHColors.success,
-                            colorText: Colors.white,
-                          );
-                        },
+                        onPressed: _enableDataContribution,
                       ),
                     ),
                   ],
@@ -3205,7 +3220,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const JHColors.success,
+                        backgroundColor: JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3283,7 +3298,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const JHColors.success,
+                        backgroundColor: JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3374,7 +3389,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const JHColors.success,
+                        backgroundColor: JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3447,7 +3462,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         language == 'fil' ? 'Tagumpay!' : 'Success!',
                         result,
                         snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: const JHColors.success,
+                        backgroundColor: JHColors.success,
                         colorText: Colors.white,
                         duration: const Duration(seconds: 3),
                       );
@@ -3482,15 +3497,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       case 'all':
         return ColorConstant.trustBlue;
       case 'low':
-        return const JHColors.success;
+        return JHColors.success;
       case 'mild':
-        return const JHColors.warning;
+        return JHColors.warning;
       case 'moderate':
-        return const JHColors.warning;
+        return JHColors.warning;
       case 'high':
-        return const JHColors.danger;
+        return JHColors.danger;
       case 'critical':
-        return const JHColors.dangerDark;
+        return JHColors.dangerDark;
       default:
         return ColorConstant.gentleGray;
     }
@@ -3575,15 +3590,343 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Color _getHeatmapColor(int score) {
     if (score <= 5) {
-      return const JHColors.success; // Green
+      return JHColors.success; // Green
     } else if (score <= 10) {
-      return const JHColors.warning; // Yellow
+      return JHColors.warning; // Yellow
     } else if (score <= 15) {
-      return const JHColors.warning; // Orange
+      return JHColors.warning; // Orange
     } else if (score <= 20) {
-      return const JHColors.danger; // Red-Orange
+      return JHColors.danger; // Red-Orange
     } else {
-      return const JHColors.dangerDark; // Red
+      return JHColors.dangerDark; // Red
+    }
+  }
+
+  /// Show all insights in a modal
+  void _showAllInsightsModal() {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    Get.bottomSheet(
+      Container(
+        height: Get.height * 0.8,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: ColorConstant.softWhite,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb, color: ColorConstant.trustBlue, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isFilipino ? 'Lahat ng Health Insights' : 'All Health Insights',
+                          style: JHTextStyles.h4.copyWith(
+                            color: ColorConstant.bluedark,
+                          ),
+                        ),
+                        Text(
+                          isFilipino
+                              ? '${_insights.length} personalized insights'
+                              : '${_insights.length} personalized insights',
+                          style: JHTextStyles.caption.copyWith(
+                            color: ColorConstant.gentleGray,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: ColorConstant.gentleGray),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: isFilipino ? 'Maghanap ng insights...' : 'Search insights...',
+                  prefixIcon: Icon(Icons.search, color: ColorConstant.gentleGray),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: ColorConstant.cardBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: ColorConstant.cardBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: ColorConstant.trustBlue, width: 2),
+                  ),
+                  filled: true,
+                  fillColor: ColorConstant.softWhite,
+                ),
+                onChanged: (query) {
+                  setState(() {
+                    // Filter insights based on search query
+                  });
+                },
+              ),
+            ),
+
+            // Insights list
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _insights.length,
+                itemBuilder: (context, index) {
+                  final insight = _insights[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildRefinedInsightCard(insight),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      isDismissible: true,
+      enableDrag: true,
+      isScrollControlled: true,
+    );
+  }
+
+  /// Navigate to full history view
+  void _navigateToFullHistory() {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    Get.to(
+      () => FullHistoryScreen(
+        initialHistory: _filteredHistory,
+        dateRange: _selectedDateRange.getLabel(),
+        customStartDate: _customStartDate,
+        customEndDate: _customEndDate,
+      ),
+    );
+  }
+
+  /// Show data contribution information
+  void _showDataContributionInfo() {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    Get.dialog(
+      AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: ColorConstant.trustBlue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isFilipino ? 'Tungkol sa Data Contribution' : 'About Data Contribution',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isFilipino
+                    ? 'Paano Gumagana ang Data Contribution'
+                    : 'How Data Contribution Works',
+                style: JHTextStyles.h5.copyWith(
+                  color: ColorConstant.bluedark,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildInfoPoint(
+                icon: Icons.lock,
+                text: isFilipino
+                    ? 'Ang inyong data ay 100% anonymized - walang personal information na kasama'
+                    : 'Your data is 100% anonymized - no personal information included',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoPoint(
+                icon: Icons.science,
+                text: isFilipino
+                    ? 'Tumutulong sa PHC research para sa mas mahusay na heart disease prevention'
+                    : 'Helps PHC research for better heart disease prevention',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoPoint(
+                icon: Icons.toggle_on,
+                text: isFilipino
+                    ? 'Pwede ninyong i-disable anumang oras sa Privacy Settings'
+                    : 'Can be disabled anytime in Privacy Settings',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoPoint(
+                icon: Icons.shield,
+                text: isFilipino
+                    ? 'Sumusunod sa Data Privacy Act of 2012'
+                    : 'Complies with Data Privacy Act of 2012',
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ColorConstant.softWhite,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: ColorConstant.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: JHColors.success, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isFilipino
+                            ? 'Tumutulong kayo sa millions of Filipinos na makaiwas sa heart disease'
+                            : 'You help millions of Filipinos prevent heart disease',
+                        style: JHTextStyles.caption.copyWith(
+                          color: ColorConstant.gentleGray,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          StandardButton.outline(
+            text: isFilipino ? 'Isara' : 'Close',
+            onPressed: () => Get.back(),
+            width: 100,
+          ),
+          const SizedBox(width: 8),
+          StandardButton.primary(
+            text: isFilipino ? 'Pumayag Ngayon' : 'Contribute Now',
+            onPressed: () {
+              Get.back();
+              _enableDataContribution();
+            },
+            width: 150,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoPoint({required IconData icon, required String text}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: ColorConstant.trustBlue),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: JHTextStyles.bodySmall.copyWith(
+              color: ColorConstant.gentleGray,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Enable data contribution
+  Future<void> _enableDataContribution() async {
+    final isFilipino = Get.locale?.languageCode == 'fil';
+
+    // Show confirmation dialog
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text(
+          isFilipino ? 'I-enable ang Data Contribution?' : 'Enable Data Contribution?',
+          style: JHTextStyles.h5.copyWith(
+            color: ColorConstant.bluedark,
+          ),
+        ),
+        content: Text(
+          isFilipino
+              ? 'Ang inyong anonymized health data ay magiging bahagi ng PHC research para sa heart disease prevention. Salamat sa inyong contribution!'
+              : 'Your anonymized health data will contribute to PHC research for heart disease prevention. Thank you for your contribution!',
+          style: JHTextStyles.bodyBase.copyWith(
+            color: ColorConstant.gentleGray,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          StandardButton.outline(
+            text: isFilipino ? 'Kanselahin' : 'Cancel',
+            onPressed: () => Get.back(result: false),
+            width: 120,
+          ),
+          const SizedBox(width: 8),
+          StandardButton.primary(
+            text: isFilipino ? 'Oo, Pumayag' : 'Yes, Enable',
+            onPressed: () => Get.back(result: true),
+            width: 150,
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Enable data contribution using PrivacyService
+        await PrivacyService.setResearchContributionEnabled(true);
+
+        Get.snackbar(
+          isFilipino ? 'Salamat!' : 'Thank You!',
+          isFilipino
+              ? 'Salamat sa inyong contribution sa heart disease research!'
+              : 'Thank you for contributing to heart disease research!',
+          backgroundColor: JHColors.success,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+          icon: Icon(Icons.favorite, color: Colors.white),
+        );
+
+        // Reload data to reflect changes
+        setState(() {});
+      } catch (e) {
+        Get.snackbar(
+          isFilipino ? 'Error' : 'Error',
+          isFilipino
+              ? 'Hindi ma-enable ang data contribution: $e'
+              : 'Failed to enable data contribution: $e',
+          backgroundColor: JHColors.danger,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
+      }
     }
   }
 }

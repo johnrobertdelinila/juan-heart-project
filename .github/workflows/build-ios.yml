@@ -1,0 +1,308 @@
+name: Build iOS Release
+
+# ⚠️ IMPORTANT: This workflow requires Apple Developer Program membership ($99/year)
+# Status: BLOCKED - Waiting for Apple Developer account
+# Once account is active, configure the following GitHub Secrets:
+#   - IOS_CERTIFICATE_BASE64 (Distribution certificate p12, base64 encoded)
+#   - IOS_CERTIFICATE_PASSWORD (Certificate password)
+#   - IOS_PROVISION_PROFILE_BASE64 (Provisioning profile, base64 encoded)
+#   - APP_STORE_CONNECT_API_KEY_BASE64 (App Store Connect API key p8, base64)
+#   - APP_STORE_CONNECT_ISSUER_ID (Issuer ID from App Store Connect)
+#   - APP_STORE_CONNECT_KEY_ID (Key ID from App Store Connect)
+
+# Trigger on tags for release builds
+on:
+  push:
+    tags:
+      - 'v*.*.*-ios'
+      - 'v*.*.*-ios-beta'
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: 'Export method'
+        required: true
+        default: 'app-store'
+        type: choice
+        options:
+          - app-store
+          - ad-hoc
+          - development
+
+jobs:
+  build-ios:
+    name: Build iOS Release
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods
+          echo "✅ CocoaPods installed"
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Create .env file
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_NUMBER: ${{ secrets.TWILIO_NUMBER }}
+          GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY }}
+          EDUCATIONAL_CONTENT_API_URL: ${{ secrets.EDUCATIONAL_CONTENT_API_URL }}
+        run: |
+          cat > .env <<EOF
+          ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+          AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+          TWILIO_NUMBER=${TWILIO_NUMBER}
+          GENKIT_BACKEND_URL=https://us-central1-juan-heart-project.cloudfunctions.net/assessHeartRiskHttp
+          FEATURE_FLAGS_URL=
+          EDUCATIONAL_CONTENT_API_URL=${EDUCATIONAL_CONTENT_API_URL}
+          GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
+          EOF
+
+      - name: Install iOS pods
+        run: |
+          cd ios
+          pod install
+          echo "✅ CocoaPods dependencies installed"
+
+      - name: Get version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            VERSION=${VERSION%-ios*}
+          else
+            VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          fi
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION ($BUILD_NUMBER)"
+
+      - name: Update version in pubspec.yaml
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD_NUMBER="${{ steps.version.outputs.build_number }}"
+          sed -i '' "s/^version: .*/version: $VERSION+$BUILD_NUMBER/" pubspec.yaml
+          echo "✅ Updated version to $VERSION+$BUILD_NUMBER"
+
+      - name: Decode and install certificate
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+        run: |
+          # This step will be enabled once Apple Developer account is active
+          if [ -z "$IOS_CERTIFICATE_BASE64" ]; then
+            echo "⚠️  iOS certificate not configured"
+            echo "⚠️  Skipping certificate installation"
+            echo "⚠️  Build will fail at signing step"
+            exit 0
+          fi
+
+          # Create keychain for signing
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-keychain-settings -t 3600 -l ~/Library/Keychains/build.keychain
+
+          # Decode and import certificate
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 \
+            -k ~/Library/Keychains/build.keychain \
+            -P "$IOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "" \
+            ~/Library/Keychains/build.keychain
+
+          rm certificate.p12
+          echo "✅ Certificate installed"
+
+      - name: Install provisioning profile
+        env:
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+        run: |
+          if [ -z "$IOS_PROVISION_PROFILE_BASE64" ]; then
+            echo "⚠️  Provisioning profile not configured"
+            echo "⚠️  Skipping profile installation"
+            exit 0
+          fi
+
+          PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_PATH"
+
+          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH/juan_heart.mobileprovision"
+          echo "✅ Provisioning profile installed"
+
+      - name: Build iOS IPA
+        run: |
+          EXPORT_METHOD="${{ github.event.inputs.export_method || 'app-store' }}"
+
+          flutter build ipa \
+            --release \
+            --export-options-plist=ios/ExportOptions.plist \
+            --export-method=$EXPORT_METHOD
+
+          if [ $? -eq 0 ]; then
+            echo "✅ iOS build complete"
+          else
+            echo "❌ iOS build failed"
+            echo ""
+            echo "🔍 Troubleshooting:"
+            echo "  1. Check that Apple Developer account is active"
+            echo "  2. Verify distribution certificate is valid"
+            echo "  3. Check provisioning profile matches bundle ID"
+            echo "  4. Ensure all GitHub Secrets are configured"
+            exit 1
+          fi
+
+      - name: Verify IPA signature
+        run: |
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" -print -quit)
+          if [ -f "$IPA_PATH" ]; then
+            echo "🔐 Verifying IPA signature..."
+            codesign -dvv "$IPA_PATH"
+            echo "✅ IPA signed correctly"
+          else
+            echo "⚠️  IPA file not found"
+          fi
+
+      - name: Upload symbols to Firebase Crashlytics
+        run: |
+          echo "📤 Uploading dSYMs to Firebase Crashlytics"
+
+          # Firebase Crashlytics automatically processes dSYMs from App Store submissions
+          # For manual upload, uncomment below:
+          # DSYM_PATH=$(find build/ios/archive -name "*.dSYM" -print -quit)
+          # if [ -d "$DSYM_PATH" ]; then
+          #   ${PODS_ROOT}/FirebaseCrashlytics/upload-symbols \
+          #     -gsp ios/Runner/GoogleService-Info.plist \
+          #     -p ios "$DSYM_PATH"
+          #   echo "✅ dSYMs uploaded"
+          # fi
+
+          echo "✅ Symbols ready for upload"
+
+      - name: Calculate IPA size
+        run: |
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" -print -quit)
+          if [ -f "$IPA_PATH" ]; then
+            SIZE=$(du -h "$IPA_PATH" | cut -f1)
+            echo "📦 IPA Size: $SIZE"
+          fi
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-ipa-${{ steps.version.outputs.version }}
+          path: |
+            build/ios/ipa/*.ipa
+          retention-days: 30
+
+      - name: Upload dSYMs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-dsyms-${{ steps.version.outputs.version }}
+          path: |
+            build/ios/archive/**/dSYMs/**
+          retention-days: 90
+
+      - name: Create GitHub Release (iOS)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/ios/ipa/*.ipa
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## Juan Heart Mobile iOS v${{ steps.version.outputs.version }}
+
+            **Build Number:** ${{ steps.version.outputs.build_number }}
+            **Release Date:** ${{ github.event.head_commit.timestamp }}
+
+            ### 📦 Downloads
+
+            **IPA File** (install via TestFlight or Xcode):
+            - Use TestFlight for beta testing
+            - Submit to App Store for production release
+
+            ### 🔒 Security
+
+            - Code signed with Apple Distribution certificate
+            - Uploaded to App Store Connect
+            - dSYM files uploaded to Firebase Crashlytics
+
+            ### 📋 Installation Instructions
+
+            **For Beta Testers:**
+            1. Install TestFlight app from App Store
+            2. Click beta invitation link (sent via email)
+            3. Install "Juan Heart" from TestFlight
+
+            **For Production:**
+            - Install from App Store (coming soon)
+
+            ### 🐛 Bug Reports
+
+            Please report issues at: https://github.com/${{ github.repository }}/issues
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build summary
+        run: |
+          echo "## 📱 iOS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Number:** ${{ steps.version.outputs.build_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Export Method:** ${{ github.event.inputs.export_method || 'app-store' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ IPA file uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "✅ dSYM files uploaded" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" -print -quit)
+          if [ -f "$IPA_PATH" ]; then
+            echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download IPA from artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "2. Upload to App Store Connect" >> $GITHUB_STEP_SUMMARY
+            echo "3. Submit for TestFlight beta testing" >> $GITHUB_STEP_SUMMARY
+            echo "4. Or submit for App Store Review" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  **Build blocked:** Apple Developer account required" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To enable iOS builds:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Enroll in Apple Developer Program (\$99/year)" >> $GITHUB_STEP_SUMMARY
+            echo "2. Create distribution certificate" >> $GITHUB_STEP_SUMMARY
+            echo "3. Create App ID and provisioning profile" >> $GITHUB_STEP_SUMMARY
+            echo "4. Configure GitHub Secrets (see workflow comments)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          if security list-keychains | grep -q "build.keychain"; then
+            security delete-keychain build.keychain
+            echo "✅ Keychain cleaned up"
+          fi

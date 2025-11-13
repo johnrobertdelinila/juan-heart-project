@@ -1,12 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:juan_heart/bloc/auth_bloc/signup_bloc/signup_bloc_state.dart';
 import 'package:juan_heart/core/constants/api_constants.dart';
 import 'package:juan_heart/core/constants/enums.dart';
 import 'package:juan_heart/models/response/user_response.dart';
-import 'package:juan_heart/models/user_model.dart';
 // import 'package:juan_heart/models/user_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
